@@ -1,0 +1,33 @@
+{
+  "SyncIntervalMinutes": 3,
+  "LookAheadDays": 14,
+
+  "DefaultEventReminderMinutes": [10],
+  "AlsoRemindAtEventStart": false,
+  "AllDayReminderTime": "09:00",
+  "BirthdayReminderTime": "09:00",
+
+  "DefaultTaskTime": "09:00",
+  "TaskReminderMinutes": [0],
+
+  "Display": {
+    "Event": "FullScreen",
+    "Birthday": "Toast",
+    "Task": "FullScreen"
+  },
+
+  "Blacklist": [
+    { "Process": "obs64.exe", "Action": "ToastOnly" },
+    { "Process": "valorant.exe", "Action": "Postpone" },
+    { "Process": "vlc.exe", "Action": "Silent" }
+  ],
+  "AutoDetectFullscreenApps": true,
+  "AutoDetectAction": "Postpone",
+  "MaxPostponeMinutes": 120,
+
+  "SnoozeOptionsMinutes": [5, 10, 30],
+  "ToastDurationSeconds": 20,
+  "MissedReminderGraceMinutes": 60,
+  "PlaySound": true,
+  "IgnoredCalendarIds": []
+}

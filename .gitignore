@@ -1,0 +1,8 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+client_secret*.json
+publish/
+TestResults/

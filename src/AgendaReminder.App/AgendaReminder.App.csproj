@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- WinForms uniquement pour l'icône de la zone de notification (NotifyIcon). -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- Permet de compiler depuis Linux/macOS (CI) ; l'exécution reste Windows uniquement. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>AgendaReminder.App</RootNamespace>
+    <AssemblyName>AgendaReminder</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgendaReminder.Core\AgendaReminder.Core.csproj" />
+  </ItemGroup>
+
+</Project>
