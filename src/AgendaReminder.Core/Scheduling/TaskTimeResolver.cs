@@ -9,8 +9,9 @@ namespace AgendaReminder.Core.Scheduling;
 /// L'API Google Tasks ne renvoie que la DATE d'échéance (l'heure choisie dans l'UI Google est
 /// perdue, le champ "due" vaut toujours minuit UTC). On résout donc l'heure, dans cet ordre :
 ///   1. une heure réelle dans "due" (si Google se met un jour à la renvoyer) ;
-///   2. une heure écrite dans les notes ou le titre de la tâche ("⏰ 14h30", "@14:30", "à 9h", "14:30"…) ;
-///   3. l'heure par défaut des paramètres.
+///   2. l'heure lue sur le site Google Agenda par le module web optionnel ;
+///   3. une heure écrite dans les notes ou le titre de la tâche ("⏰ 14h30", "@14:30", "à 9h", "14:30"…) ;
+///   4. l'heure par défaut des paramètres.
 /// </summary>
 public static partial class TaskTimeResolver
 {
@@ -33,7 +34,8 @@ public static partial class TaskTimeResolver
     /// <param name="notes">Notes de la tâche.</param>
     /// <param name="defaultTime">Heure par défaut (HH:mm).</param>
     /// <param name="zone">Fuseau local (null = fuseau du système).</param>
-    public static Result? Resolve(string? due, string? title, string? notes, string defaultTime, TimeZoneInfo? zone = null)
+    /// <param name="webTime">Heure lue sur le site Google Agenda (module web), si disponible.</param>
+    public static Result? Resolve(string? due, string? title, string? notes, string defaultTime, TimeZoneInfo? zone = null, TimeOnly? webTime = null)
     {
         if (string.IsNullOrWhiteSpace(due))
             return null;
@@ -51,13 +53,26 @@ public static partial class TaskTimeResolver
         // surtout pas en heure locale (sinon décalage d'un jour selon le fuseau).
         var date = DateOnly.FromDateTime(utc.UtcDateTime);
 
-        // 2. Heure écrite dans les notes ou le titre
+        // 2. Heure lue sur le site Google Agenda
+        if (webTime is { } w)
+            return new Result(AtLocal(date, w, zone), true, "web");
+
+        // 3. Heure écrite dans les notes ou le titre
         var found = FindTime(notes, title);
         if (found is { } t)
             return new Result(AtLocal(date, t, zone), true, "text");
 
-        // 3. Heure par défaut
+        // 4. Heure par défaut
         return new Result(AtLocal(date, ParseTimeOrDefault(defaultTime, new TimeOnly(9, 0)), zone), false, "default");
+    }
+
+    /// <summary>Date d'échéance (jour calendaire) d'une valeur "due" de l'API Tasks.</summary>
+    public static DateOnly? DueDate(string? due)
+    {
+        if (string.IsNullOrWhiteSpace(due)
+            || !DateTimeOffset.TryParse(due, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed))
+            return null;
+        return DateOnly.FromDateTime(parsed.UtcDateTime);
     }
 
     /// <summary>Cherche une heure dans les textes fournis (prioritaires dans l'ordre donné).</summary>

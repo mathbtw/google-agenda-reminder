@@ -64,6 +64,16 @@ public sealed class AppSettings
     /// </summary>
     public string DefaultTaskTime { get; set; } = "09:00";
 
+    /// <summary>
+    /// Module expérimental : lit l'heure réelle des tâches sur le site Google Agenda via un navigateur
+    /// intégré (WebView2) connecté à votre compte. Désactivé par défaut ; en cas d'échec, l'app revient
+    /// automatiquement à l'heure écrite dans la tâche / l'heure par défaut.
+    /// </summary>
+    public bool EnableWebTaskTimes { get; set; } = false;
+
+    /// <summary>Fréquence de lecture du site Google Agenda par le module web, en minutes.</summary>
+    public int WebTaskTimesRefreshMinutes { get; set; } = 30;
+
     /// <summary>Rappels (minutes avant l'heure résolue) pour les tâches. 0 = à l'heure pile.</summary>
     public List<int> TaskReminderMinutes { get; set; } = new() { 0 };
 

@@ -13,7 +13,8 @@ Petite app de la zone de notification qui synchronise **Google Agenda** (évène
 L'API Google Tasks ne renvoie que la **date** d'échéance. L'heure choisie dans Google n'est pas transmise, c'est une [limite connue de l'API](https://issuetracker.google.com/issues/170143566). L'app résout donc l'heure dans cet ordre :
 
 1. l'heure fournie par l'API, si Google la renvoie un jour (déjà géré) ;
-2. **une heure écrite dans le titre ou les notes de la tâche** :
+2. l'heure lue sur le site Google Agenda par le **module web optionnel** (voir plus bas) ;
+3. **une heure écrite dans le titre ou les notes de la tâche** :
    | Écrit dans la tâche              | Rappel |
    |----------------------------------|--------|
    | `⏰ 14h30` / `@14:30` / `rappel 14h30` | 14:30 |
@@ -21,9 +22,25 @@ L'API Google Tasks ne renvoie que la **date** d'échéance. L'heure choisie dans
    | `heure: 7h15`                    | 07:15  |
    | `Réunion 10:45`                  | 10:45  |
    | `Faire 2h de sport` (durée)      | ignoré, heure par défaut |
-3. sinon, l'heure par défaut `DefaultTaskTime` (09:00).
+4. sinon, l'heure par défaut `DefaultTaskTime` (09:00).
 
 Ça marche aussi quand la tâche est créée depuis le téléphone : il suffit d'ajouter `⏰ 14h30` dans les notes.
+
+### Module web : récupérer l'heure réelle des tâches (expérimental, désactivé par défaut)
+
+Ce module lit l'heure que tu as choisie dans Google, sans rien écrire dans la tâche. L'app ouvre Google Agenda dans un navigateur intégré invisible (Microsoft Edge WebView2, déjà présent sur Windows 10/11). Elle affiche la vue « jour » de chaque date qui a des tâches, et y lit l'heure affichée à côté de chaque tâche.
+
+**Activation :** menu → *Heure des tâches (module web)* → *Activer*, puis *Se connecter au site Google Agenda…* (une seule fois).
+
+- Les tâches doivent être visibles dans Google Agenda (agenda « Tâches » coché dans la liste de gauche).
+- Lecture toutes les 30 min (`WebTaskTimesRefreshMinutes`). Le navigateur n'est lancé que le temps de la lecture.
+- L'app est **prudente** : si l'heure est ambiguë (deux tâches au même titre le même jour, deux heures différentes…), elle ne la prend pas et revient aux règles 3 puis 4.
+- En cas d'échec (Google change son site, session expirée…), les rappels continuent avec l'heure écrite ou l'heure par défaut. L'état est affiché dans le menu.
+
+⚠️ À savoir :
+- **Ce n'est pas une API officielle.** Ça peut cesser de marcher si Google modifie son site.
+- La session Google du module (cookies) est enregistrée dans `%APPDATA%\AgendaReminder\webview`. Elle donne accès à **tout** le compte, et pas seulement en lecture comme l'API. Pour la révoquer : *Se déconnecter* sur le site, ou supprimer ce dossier.
+- Google peut refuser la connexion dans un navigateur intégré (« Ce navigateur n'est peut-être pas sécurisé »). Dans ce cas, le module ne pourra pas fonctionner : il reste désactivé et l'app marche comme avant.
 
 ## Installation
 
@@ -59,6 +76,7 @@ Le menu **Tester** permet de voir une notification, le plein écran, et le nom e
 | `DefaultEventReminderMinutes` | Utilisé si l'évènement n'a pas de rappel « notification » dans Google (sinon ceux de Google sont repris) |
 | `AlsoRemindAtEventStart` | Rappel supplémentaire à l'heure pile |
 | `DefaultTaskTime`, `TaskReminderMinutes` | Heure par défaut des tâches, et rappels avant l'heure résolue |
+| `EnableWebTaskTimes`, `WebTaskTimesRefreshMinutes` | Module web (heure réelle des tâches), désactivé par défaut |
 | `AllDayReminderTime`, `BirthdayReminderTime` | Heure du rappel des évènements « journée entière » et des anniversaires |
 | `MissedReminderGraceMinutes` | Un rappel manqué (PC éteint ou en veille) reste affiché s'il a moins de N min |
 | `IgnoredCalendarIds` | Agendas à ignorer. Par défaut, ce sont les agendas cochés dans Google qui sont suivis |
@@ -79,4 +97,4 @@ dotnet test tests/AgendaReminder.Core.Tests
 dotnet publish src/AgendaReminder.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
 ```
 
-Fichiers dans `%APPDATA%\AgendaReminder` : `settings.json`, `state.json` (rappels déjà vus, snoozes), `cache.json`, `token/` (jeton OAuth), `app.log`.
+Fichiers dans `%APPDATA%\AgendaReminder` : `settings.json`, `state.json` (rappels déjà vus, snoozes), `cache.json`, `token/` (jeton OAuth), `web_task_times.json` et `webview/` (module web), `app.log`.

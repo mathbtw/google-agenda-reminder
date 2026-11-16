@@ -8,6 +8,8 @@
   "BirthdayReminderTime": "09:00",
 
   "DefaultTaskTime": "09:00",
+  "EnableWebTaskTimes": false,
+  "WebTaskTimesRefreshMinutes": 30,
   "TaskReminderMinutes": [0],
 
   "Display": {

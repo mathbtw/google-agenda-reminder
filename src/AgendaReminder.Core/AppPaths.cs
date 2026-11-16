@@ -19,5 +19,11 @@ public static class AppPaths
     /// <summary>Dossier où Google.Apis stocke le refresh token.</summary>
     public static string TokenStore => Path.Combine(Root, "token");
 
+    /// <summary>Heures de tâches lues par le module web (id de tâche -> HH:mm).</summary>
+    public static string WebTaskTimes => Path.Combine(Root, "web_task_times.json");
+
+    /// <summary>Profil du navigateur intégré (cookies de session Google du module web).</summary>
+    public static string WebViewProfile => Path.Combine(Root, "webview");
+
     public static string Log => Path.Combine(Root, "app.log");
 }

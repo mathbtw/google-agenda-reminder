@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using AgendaReminder.App.Interop;
+using AgendaReminder.App.Web;
 using AgendaReminder.App.Views;
 using AgendaReminder.Core;
 using AgendaReminder.Core.Google;
@@ -15,6 +16,7 @@ using AgendaReminder.Core.Policy;
 using AgendaReminder.Core.Scheduling;
 using AgendaReminder.Core.Settings;
 using AgendaReminder.Core.Storage;
+using AgendaReminder.Core.Web;
 using Microsoft.Win32;
 
 namespace AgendaReminder.App.Services;
@@ -40,6 +42,15 @@ internal sealed class ReminderEngine : IDisposable
     private readonly ReminderState _state;
     private FullScreenReminderWindow? _fullScreen;
 
+    /// <summary>Module web : heures de tâches lues sur le site Google Agenda (id de tâche -> heure).</summary>
+    private Dictionary<string, TimeOnly> _webTimes;
+    private DateTimeOffset _lastWebRead = DateTimeOffset.MinValue;
+
+    /// <summary>État du module web, affiché dans le menu.</summary>
+    public string WebStatus { get; private set; } = "désactivé";
+
+    public bool WebNeedsLogin { get; private set; }
+
     public AppSettings Settings { get; private set; }
 
     public DateTimeOffset? LastSync { get; private set; }
@@ -54,6 +65,9 @@ internal sealed class ReminderEngine : IDisposable
         _state = JsonFileStore.LoadOrCreate(AppPaths.State, () => new ReminderState(), writeIfMissing: false);
         // Cache local : les rappels fonctionnent même sans réseau.
         _items = JsonFileStore.LoadOrCreate(AppPaths.Cache, () => new List<ReminderItem>(), writeIfMissing: false);
+        _webTimes = JsonFileStore.LoadOrCreate(AppPaths.WebTaskTimes, () => new Dictionary<string, TimeOnly>(), writeIfMissing: false);
+        if (Settings.EnableWebTaskTimes)
+            WebStatus = "en attente";
 
         _tick.Tick += (_, _) => CheckDue();
         _syncTimer.Tick += async (_, _) => await SyncAsync();
@@ -123,13 +137,29 @@ internal sealed class ReminderEngine : IDisposable
             if (!_google.IsConnected)
                 await _google.ConnectAsync(cts.Token);
 
-            var items = await _google.FetchAsync(Settings, DateTimeOffset.Now, cts.Token);
+            var webTimes = Settings.EnableWebTaskTimes ? _webTimes : null;
+            var items = await _google.FetchAsync(Settings, DateTimeOffset.Now, webTimes, cts.Token);
             _items = items;
             JsonFileStore.Save(AppPaths.Cache, _items);
             LastSync = DateTimeOffset.Now;
             LastError = null;
             Log.Info($"Synchro OK : {items.Count} éléments");
             CheckDue();
+
+            if (Settings.EnableWebTaskTimes && !WebNeedsLogin
+                && DateTimeOffset.Now - _lastWebRead >= TimeSpan.FromMinutes(Math.Max(5, Settings.WebTaskTimesRefreshMinutes)))
+            {
+                try
+                {
+                    await RefreshWebCoreAsync(cts.Token);
+                }
+                catch (Exception ex)
+                {
+                    // Le module web est optionnel : son échec n'affecte jamais la synchro officielle.
+                    WebStatus = "erreur : " + ex.Message;
+                    Log.Error("Module web", ex);
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -141,6 +171,145 @@ internal sealed class ReminderEngine : IDisposable
             _syncGate.Release();
             StatusChanged?.Invoke();
         }
+    }
+
+    /// <summary>
+    /// Module web : lit l'heure des tâches sur le site Google Agenda (vue "jour" de chaque date ayant
+    /// des tâches), puis recalcule les rappels des tâches. Tout échec laisse les heures précédentes en place.
+    /// </summary>
+    public async Task<string> RefreshWebTaskTimesAsync()
+    {
+        await _syncGate.WaitAsync(); // jamais en même temps qu'une synchro
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+            return await RefreshWebCoreAsync(cts.Token);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Module web", ex);
+            WebStatus = "erreur : " + ex.Message;
+            return WebStatus;
+        }
+        finally
+        {
+            _syncGate.Release();
+            StatusChanged?.Invoke();
+        }
+    }
+
+    private async Task<string> RefreshWebCoreAsync(CancellationToken ct)
+    {
+        if (!WebViewHost.IsRuntimeAvailable())
+        {
+            WebStatus = "runtime WebView2 absent";
+            StatusChanged?.Invoke();
+            return WebStatus;
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var tasks = _items
+            .Where(i => i.Kind == ReminderKind.Task && i.TaskDue is not null)
+            .Select(i => new TaskToMatch(i.Id, i.Title, TaskTimeResolver.DueDate(i.TaskDue)!.Value))
+            .Where(t => t.DueDate >= today && t.DueDate <= today.AddDays(Settings.LookAheadDays))
+            .ToList();
+
+        _lastWebRead = DateTimeOffset.Now;
+        if (tasks.Count == 0)
+        {
+            WebStatus = $"aucune tâche à venir ({_lastWebRead:HH:mm})";
+            StatusChanged?.Invoke();
+            return WebStatus;
+        }
+
+        var updated = new Dictionary<string, TimeOnly>(_webTimes);
+        int found = 0, daysRead = 0, daysFailed = 0;
+        using (var scraper = new WebTaskTimeScraper())
+        {
+            foreach (var day in tasks.GroupBy(t => t.DueDate).OrderBy(g => g.Key).Take(14))
+            {
+                var (status, snippets) = await scraper.CollectDayAsync(day.Key, ct);
+                if (status == ScrapeStatus.NeedsLogin)
+                {
+                    WebNeedsLogin = true;
+                    WebStatus = "connexion au site Google requise";
+                    Log.Info("Module web : connexion requise");
+                    StatusChanged?.Invoke();
+                    return WebStatus;
+                }
+                if (status != ScrapeStatus.Ok)
+                {
+                    daysFailed++;
+                    continue; // on garde les heures connues pour ce jour
+                }
+
+                daysRead++;
+                var matches = WebTaskTimeMatcher.Match(snippets, day.ToList());
+                foreach (var task in day)
+                {
+                    if (matches.TryGetValue(task.Id, out var time))
+                    {
+                        updated[task.Id] = time;
+                        found++;
+                    }
+                    else
+                    {
+                        updated.Remove(task.Id); // heure retirée dans Google, ou tâche "journée entière"
+                    }
+                }
+                Log.Info($"Module web : {day.Key:yyyy-MM-dd} -> {snippets.Count} textes, {matches.Count}/{day.Count()} heure(s) trouvée(s)");
+            }
+        }
+
+        // Purge des tâches disparues
+        var known = _items.Select(i => i.Id).ToHashSet();
+        foreach (var id in updated.Keys.Where(k => !known.Contains(k)).ToList())
+            updated.Remove(id);
+
+        _webTimes = updated;
+        JsonFileStore.Save(AppPaths.WebTaskTimes, _webTimes);
+
+        var zone = TimeZoneInfo.Local;
+        _items = _items
+            .Select(i => i.Kind == ReminderKind.Task
+                ? TaskItemFactory.Rebuild(i, Settings, zone, _webTimes.TryGetValue(i.Id, out var t) ? t : null)
+                : i)
+            .ToList();
+        JsonFileStore.Save(AppPaths.Cache, _items);
+
+        WebStatus = daysRead == 0 && daysFailed > 0
+            ? $"échec de lecture ({_lastWebRead:HH:mm}), heures précédentes conservées"
+            : $"{found}/{tasks.Count} heure(s) trouvée(s) à {_lastWebRead:HH:mm}";
+        StatusChanged?.Invoke();
+        CheckDue();
+        return WebStatus;
+    }
+
+    /// <summary>Ouvre la fenêtre de connexion au site Google Agenda (module web).</summary>
+    public async Task LoginWebAsync()
+    {
+        var window = new GoogleWebLoginWindow();
+        window.ShowDialog();
+        if (window.Succeeded)
+        {
+            WebNeedsLogin = false;
+            WebStatus = "connecté";
+            StatusChanged?.Invoke();
+            if (Settings.EnableWebTaskTimes)
+                await RefreshWebTaskTimesAsync();
+        }
+    }
+
+    /// <summary>Active/désactive le module web (enregistré dans settings.json).</summary>
+    public async Task SetWebTaskTimesEnabledAsync(bool enabled)
+    {
+        Settings.EnableWebTaskTimes = enabled;
+        JsonFileStore.Save(AppPaths.Settings, Settings); // le watcher rechargera et re-synchronisera
+        WebStatus = enabled ? "en attente" : "désactivé";
+        _lastWebRead = DateTimeOffset.MinValue;
+        StatusChanged?.Invoke();
+        if (enabled && WebNeedsLogin)
+            await LoginWebAsync();
     }
 
     public void SignOut()

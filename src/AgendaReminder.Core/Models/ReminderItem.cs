@@ -38,4 +38,7 @@ public sealed record ReminderItem
 
     /// <summary>Pour une tâche : vrai si l'heure vient d'une indication explicite (API ou notes), faux si heure par défaut.</summary>
     public bool HasExplicitTime { get; init; } = true;
+
+    /// <summary>Pour une tâche : valeur brute du champ "due" de l'API (permet de recalculer l'heure sans re-synchroniser).</summary>
+    public string? TaskDue { get; init; }
 }

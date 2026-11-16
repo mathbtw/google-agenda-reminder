@@ -16,6 +16,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Module optionnel "heure des tâches" : navigateur intégré (runtime Edge WebView2, présent sur Windows 10/11). -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\AgendaReminder.Core\AgendaReminder.Core.csproj" />
   </ItemGroup>
 

@@ -19,6 +19,10 @@ internal sealed class TrayIcon : IDisposable
     private readonly ToolStripMenuItem _status = new() { Enabled = false };
     private readonly ToolStripMenuItem _upcoming = new("Prochains rappels");
     private readonly ToolStripMenuItem _startup = new("Lancer au démarrage de Windows") { CheckOnClick = true };
+    private readonly ToolStripMenuItem _web = new("Heure des tâches (module web, expérimental)");
+    private readonly ToolStripMenuItem _webStatus = new() { Enabled = false };
+    private readonly ToolStripMenuItem _webEnabled = new("Activer") { CheckOnClick = true };
+    private bool _refreshingMenu;
     private Icon? _currentIcon;
     private int _iconDay = -1;
 
@@ -43,6 +47,21 @@ internal sealed class TrayIcon : IDisposable
                 $"{fg.ProcessName ?? "(inconnue)"}\nPlein écran / occupé : {(fg.IsFullscreenOrBusy ? "oui" : "non")}", ToolTipIcon.Info);
         });
         menu.Items.Add(test);
+
+        _web.DropDownItems.Add(_webStatus);
+        _web.DropDownItems.Add(_webEnabled);
+        _web.DropDownItems.Add("Se connecter au site Google Agenda…", null, async (_, _) => await _engine.LoginWebAsync());
+        _web.DropDownItems.Add("Lire les heures maintenant", null, async (_, _) =>
+        {
+            var result = await _engine.RefreshWebTaskTimesAsync();
+            ShowBalloon("Heure des tâches", result);
+        });
+        _webEnabled.CheckedChanged += async (_, _) =>
+        {
+            if (_refreshingMenu) return;
+            await _engine.SetWebTaskTimesEnabledAsync(_webEnabled.Checked);
+        };
+        menu.Items.Add(_web);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Paramètres (settings.json)", null, (_, _) => Open(AppPaths.Settings));
         menu.Items.Add("Ouvrir le dossier de l'app", null, (_, _) => Open(AppPaths.Root));
@@ -53,6 +72,7 @@ internal sealed class TrayIcon : IDisposable
 
         _startup.CheckedChanged += (_, _) =>
         {
+            if (_refreshingMenu) return;
             try { StartupRegistration.Set(_startup.Checked); }
             catch (Exception ex) { Log.Error("Démarrage automatique", ex); }
         };
@@ -89,7 +109,11 @@ internal sealed class TrayIcon : IDisposable
     private void RefreshMenu()
     {
         RefreshStatus();
+        _refreshingMenu = true;
         _startup.Checked = StartupRegistration.IsEnabled;
+        _webEnabled.Checked = _engine.Settings.EnableWebTaskTimes;
+        _refreshingMenu = false;
+        _webStatus.Text = "État : " + _engine.WebStatus;
 
         _upcoming.DropDownItems.Clear();
         var next = _engine.Upcoming().Take(10).ToList();

@@ -58,7 +58,9 @@ public sealed class GoogleSyncService : IDisposable
             Directory.Delete(AppPaths.TokenStore, recursive: true);
     }
 
-    public async Task<List<ReminderItem>> FetchAsync(AppSettings settings, DateTimeOffset now, CancellationToken ct)
+    /// <param name="webTimes">Heures de tâches lues par le module web (id de tâche -> heure), optionnel.</param>
+    public async Task<List<ReminderItem>> FetchAsync(
+        AppSettings settings, DateTimeOffset now, IReadOnlyDictionary<string, TimeOnly>? webTimes, CancellationToken ct)
     {
         if (_calendar is null || _tasks is null)
             throw new InvalidOperationException("Non connecté à Google.");
@@ -66,7 +68,7 @@ public sealed class GoogleSyncService : IDisposable
         var zone = TimeZoneInfo.Local;
         var items = new List<ReminderItem>();
         items.AddRange(await FetchCalendarAsync(_calendar, settings, now, zone, ct));
-        items.AddRange(await FetchTasksAsync(_tasks, settings, now, zone, ct));
+        items.AddRange(await FetchTasksAsync(_tasks, settings, now, zone, webTimes, ct));
         return items;
     }
 
@@ -188,7 +190,8 @@ public sealed class GoogleSyncService : IDisposable
     }
 
     private static async Task<List<ReminderItem>> FetchTasksAsync(
-        TasksService service, AppSettings settings, DateTimeOffset now, TimeZoneInfo zone, CancellationToken ct)
+        TasksService service, AppSettings settings, DateTimeOffset now, TimeZoneInfo zone,
+        IReadOnlyDictionary<string, TimeOnly>? webTimes, CancellationToken ct)
     {
         var result = new List<ReminderItem>();
 
@@ -227,21 +230,11 @@ public sealed class GoogleSyncService : IDisposable
                 {
                     if (task.Status == "completed" || task.Deleted == true)
                         continue;
-                    var resolved = TaskTimeResolver.Resolve(task.Due, task.Title, task.Notes, settings.DefaultTaskTime, zone);
-                    if (resolved is not { } r)
-                        continue;
-
-                    result.Add(new ReminderItem
-                    {
-                        Id = $"task:{list.Id}:{task.Id}",
-                        Kind = ReminderKind.Task,
-                        Title = string.IsNullOrWhiteSpace(task.Title) ? "(Tâche sans titre)" : task.Title,
-                        Start = r.When,
-                        Notes = task.Notes,
-                        Source = list.Title,
-                        HasExplicitTime = r.IsExplicit,
-                        Triggers = TriggerBuilder.ForTask(r.When, settings),
-                    });
+                    var id = $"task:{list.Id}:{task.Id}";
+                    TimeOnly? webTime = webTimes is not null && webTimes.TryGetValue(id, out var w) ? w : null;
+                    var item = TaskItemFactory.Build(id, task.Title, task.Notes, task.Due, list.Title, settings, zone, webTime);
+                    if (item is not null)
+                        result.Add(item);
                 }
                 pageToken = page.NextPageToken;
             } while (pageToken is not null);
