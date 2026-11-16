@@ -48,10 +48,12 @@ Ce module lit l'heure que tu as choisie dans Google, sans rien écrire dans la t
 
 1. Sur <https://console.cloud.google.com/>, créer un projet.
 2. **API et services → Bibliothèque** : activer **Google Calendar API** et **Google Tasks API**.
-3. **API et services → Écran de consentement OAuth** : type *Externe*, renseigner un nom, ajouter votre adresse dans les *utilisateurs test*.
-4. **Identifiants → Créer des identifiants → ID client OAuth → Application de bureau**, puis **Télécharger le JSON**.
-5. **Important :** dans l'écran de consentement, cliquer sur **Publier l'application** (passer en *Production*).
+3. Ouvrir **Google Auth Platform** (menu ☰ → *API et services* → *Écran de consentement OAuth*). Si on vous le demande, cliquer sur **Commencer** : nom de l'app, votre e-mail, audience **Externe**.
+4. **Audience** : cliquer sur **Publier l'application** (passer en *Production*).
    En mode *Test*, Google fait expirer la connexion **tous les 7 jours**. En production, il n'y a pas besoin de faire valider l'app pour un usage perso : Google affiche juste « Application non vérifiée » à la première connexion (*Paramètres avancés → Accéder à…*).
+5. **Clients → + Créer un client** → type **Application de bureau** → **Créer**.
+6. Dans la fenêtre qui s'affiche, cliquer sur **Télécharger le JSON**.
+   ⚠️ Google ne montre le code secret **qu'une seule fois**, à la création. Si la fenêtre est fermée : *Clients* → cliquer sur le client → **Ajouter un code secret** (ou supprimer le client et en recréer un), puis télécharger le JSON.
 
 ### 2. Lancer l'app
 
