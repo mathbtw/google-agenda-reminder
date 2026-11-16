@@ -27,7 +27,7 @@ namespace AgendaReminder.App.Services;
 /// </summary>
 internal sealed class ReminderEngine : IDisposable
 {
-    private readonly GoogleSyncService _google = new();
+    public AccountManager Accounts { get; } = new();
     private readonly ToastManager _toasts = new();
     private readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromSeconds(15) };
     private readonly DispatcherTimer _syncTimer = new();
@@ -57,7 +57,19 @@ internal sealed class ReminderEngine : IDisposable
 
     public string? LastError { get; private set; }
 
+    private bool _resyncRequested;
+
     public event Action? StatusChanged;
+
+    /// <summary>La liste des éléments a changé (après une synchro).</summary>
+    public event Action? ItemsChanged;
+
+    public IReadOnlyList<ReminderItem> Items => _items;
+
+    public bool IsSyncing { get; private set; }
+
+    /// <summary>Heures de tâches lues par le module web, pour la page "Tâches".</summary>
+    public IReadOnlyDictionary<string, TimeOnly>? WebTimes => Settings.EnableWebTaskTimes ? _webTimes : null;
 
     public ReminderEngine()
     {
@@ -130,20 +142,55 @@ internal sealed class ReminderEngine : IDisposable
     public async Task SyncAsync()
     {
         if (!await _syncGate.WaitAsync(0))
-            return; // une synchro est déjà en cours
+        {
+            _resyncRequested = true; // une synchro est en cours : on en relancera une juste après
+            return;
+        }
+        IsSyncing = true;
+        StatusChanged?.Invoke();
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
-            if (!_google.IsConnected)
-                await _google.ConnectAsync(cts.Token);
+            if (!GoogleAccountClient.HasClientSecret)
+            {
+                LastError = "Identifiants OAuth manquants (client_secret.json)";
+                return;
+            }
+            if (Accounts.Accounts.Count == 0)
+            {
+                LastError = "Aucun compte Google connecté";
+                return;
+            }
 
             var webTimes = Settings.EnableWebTaskTimes ? _webTimes : null;
-            var items = await _google.FetchAsync(Settings, DateTimeOffset.Now, webTimes, cts.Token);
-            _items = items;
+            var all = new List<ReminderItem>();
+            var errors = new List<string>();
+            foreach (var account in Accounts.Enabled.ToList())
+            {
+                try
+                {
+                    var client = await Accounts.GetClientAsync(account.Id, cts.Token);
+                    all.AddRange(await client.FetchAsync(Settings, DateTimeOffset.Now, webTimes, cts.Token));
+                    Accounts.SetError(account.Id, null);
+                }
+                catch (Exception ex)
+                {
+                    // Un compte en échec ne bloque pas les autres : on garde ses éléments déjà connus.
+                    all.AddRange(_items.Where(i => i.AccountId == account.Id));
+                    var message = ex is AccountNeedsLoginException ? ex.Message : "erreur de synchro (" + ex.Message + ")";
+                    Accounts.SetError(account.Id, message);
+                    if (ex is AccountNeedsLoginException) Accounts.Forget(account.Id);
+                    errors.Add($"{account.Email} : {message}");
+                    Log.Error("Synchro " + account.Email, ex);
+                }
+            }
+
+            _items = all;
             JsonFileStore.Save(AppPaths.Cache, _items);
             LastSync = DateTimeOffset.Now;
-            LastError = null;
-            Log.Info($"Synchro OK : {items.Count} éléments");
+            LastError = errors.Count > 0 ? string.Join(" · ", errors) : null;
+            Log.Info($"Synchro : {all.Count} éléments, {errors.Count} erreur(s)");
+            ItemsChanged?.Invoke();
             CheckDue();
 
             if (Settings.EnableWebTaskTimes && !WebNeedsLogin
@@ -163,13 +210,19 @@ internal sealed class ReminderEngine : IDisposable
         }
         catch (Exception ex)
         {
-            LastError = ex is FileNotFoundException ? "client_secret.json manquant" : ex.Message;
+            LastError = ex.Message;
             Log.Error("Synchro Google", ex);
         }
         finally
         {
+            IsSyncing = false;
             _syncGate.Release();
             StatusChanged?.Invoke();
+            if (_resyncRequested)
+            {
+                _resyncRequested = false;
+                _ = SyncAsync();
+            }
         }
     }
 
@@ -276,6 +329,7 @@ internal sealed class ReminderEngine : IDisposable
                 : i)
             .ToList();
         JsonFileStore.Save(AppPaths.Cache, _items);
+        ItemsChanged?.Invoke();
 
         WebStatus = daysRead == 0 && daysFailed > 0
             ? $"échec de lecture ({_lastWebRead:HH:mm}), heures précédentes conservées"
@@ -300,6 +354,14 @@ internal sealed class ReminderEngine : IDisposable
         }
     }
 
+    /// <summary>Enregistre les paramètres (le rechargement + la re-synchro suivent via la surveillance du fichier).</summary>
+    public void SaveSettings(AppSettings settings)
+    {
+        Settings = settings;
+        ApplyIntervals();
+        JsonFileStore.Save(AppPaths.Settings, settings);
+    }
+
     /// <summary>Active/désactive le module web (enregistré dans settings.json).</summary>
     public async Task SetWebTaskTimesEnabledAsync(bool enabled)
     {
@@ -310,14 +372,6 @@ internal sealed class ReminderEngine : IDisposable
         StatusChanged?.Invoke();
         if (enabled && WebNeedsLogin)
             await LoginWebAsync();
-    }
-
-    public void SignOut()
-    {
-        _google.SignOut();
-        LastSync = null;
-        LastError = "Déconnecté";
-        StatusChanged?.Invoke();
     }
 
     public IEnumerable<(ReminderItem Item, DateTimeOffset FireAt)> Upcoming() =>
@@ -459,6 +513,6 @@ internal sealed class ReminderEngine : IDisposable
         _tick.Stop();
         _syncTimer.Stop();
         _settingsWatcher?.Dispose();
-        _google.Dispose();
+        Accounts.Dispose();
     }
 }

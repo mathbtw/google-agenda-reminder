@@ -39,6 +39,21 @@ public sealed record ReminderItem
     /// <summary>Pour une tâche : vrai si l'heure vient d'une indication explicite (API ou notes), faux si heure par défaut.</summary>
     public bool HasExplicitTime { get; init; } = true;
 
+    /// <summary>Compte Google d'origine.</summary>
+    public string? AccountId { get; init; }
+
+    /// <summary>Agenda (évènement) ou liste de tâches (tâche) contenant l'élément.</summary>
+    public string? ContainerId { get; init; }
+
+    /// <summary>Identifiant Google de l'évènement ou de la tâche.</summary>
+    public string? SourceId { get; init; }
+
+    /// <summary>Lien vers l'élément sur le site Google.</summary>
+    public string? Link { get; init; }
+
+    /// <summary>Vrai si l'utilisateur peut modifier/supprimer l'élément (agenda en écriture).</summary>
+    public bool CanEdit { get; init; }
+
     /// <summary>Pour une tâche : valeur brute du champ "due" de l'API (permet de recalculer l'heure sans re-synchroniser).</summary>
     public string? TaskDue { get; init; }
 }

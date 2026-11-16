@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <!-- WinForms uniquement pour l'icône de la zone de notification (NotifyIcon). -->
     <UseWindowsForms>true</UseWindowsForms>
@@ -13,11 +13,24 @@
     <RootNamespace>AgendaReminder.App</RootNamespace>
     <AssemblyName>AgendaReminder</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <Product>Agenda Reminder</Product>
+    <!-- Thème Fluent natif de WPF (encore marqué expérimental). -->
+    <NoWarn>$(NoWarn);WPF0001;WFO0003</NoWarn>
+    <!-- Allègement : uniquement les ressources FR/EN, GC économe en mémoire. -->
+    <SatelliteResourceLanguages>fr;en</SatelliteResourceLanguages>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- Module optionnel "heure des tâches" : navigateur intégré (runtime Edge WebView2, présent sur Windows 10/11). -->
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\app.ico" />
   </ItemGroup>
 
   <ItemGroup>

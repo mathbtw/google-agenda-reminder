@@ -22,7 +22,7 @@ internal static class StartupRegistration
     {
         using var key = Registry.CurrentUser.CreateSubKey(RunKey);
         if (enabled && Environment.ProcessPath is { } exe)
-            key.SetValue(ValueName, $"\"{exe}\"");
+            key.SetValue(ValueName, $"\"{exe}\" --background");
         else
             key.DeleteValue(ValueName, throwOnMissingValue: false);
     }

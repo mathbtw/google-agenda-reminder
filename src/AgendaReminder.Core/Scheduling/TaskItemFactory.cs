@@ -8,7 +8,7 @@ public static class TaskItemFactory
 {
     public static ReminderItem? Build(
         string id, string? title, string? notes, string? due, string? source,
-        AppSettings settings, TimeZoneInfo zone, TimeOnly? webTime)
+        AppSettings settings, TimeZoneInfo zone, TimeOnly? webTime, ReminderItem? template = null)
     {
         var resolved = TaskTimeResolver.Resolve(due, title, notes, settings.DefaultTaskTime, zone, webTime);
         if (resolved is not { } r)
@@ -25,6 +25,11 @@ public static class TaskItemFactory
             TaskDue = due,
             HasExplicitTime = r.IsExplicit,
             Triggers = TriggerBuilder.ForTask(r.When, settings),
+            AccountId = template?.AccountId,
+            ContainerId = template?.ContainerId,
+            SourceId = template?.SourceId,
+            Link = template?.Link,
+            CanEdit = template?.CanEdit ?? false,
         };
     }
 
@@ -34,6 +39,6 @@ public static class TaskItemFactory
         if (task.Kind != ReminderKind.Task || task.TaskDue is null)
             return task;
         var title = task.Title == "(Tâche sans titre)" ? null : task.Title;
-        return Build(task.Id, title, task.Notes, task.TaskDue, task.Source, settings, zone, webTime) ?? task;
+        return Build(task.Id, title, task.Notes, task.TaskDue, task.Source, settings, zone, webTime, task) ?? task;
     }
 }

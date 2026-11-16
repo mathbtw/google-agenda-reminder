@@ -1,12 +1,17 @@
 # Agenda Reminder pour Windows
 
-Petite app de la zone de notification qui synchronise **Google Agenda** (évènements + anniversaires) et **Google Tasks**, et affiche ses propres rappels :
+Application légère pour **Google Agenda** (évènements, anniversaires) et **Google Tasks**, qui tourne dans la zone de notification :
 
-- **notifications maison** (pas les notifications Windows) : en bas à droite, elles ne volent pas le focus et le mode Concentration de Windows ne les bloque pas ;
-- **rappel plein écran épuré** pour ne rien rater (snooze +5 / +10 / +30 min, Entrée/Échap pour fermer) ;
-- **blacklist d'applications** : si une app listée est au premier plan, le rappel est reporté, réduit en toast ou ignoré ;
-- **détection automatique** des jeux plein écran, du mode présentation et des appels (`SHQueryUserNotificationState`) ;
-- cache local : les rappels marchent même hors ligne.
+- **notifications maison** (pas les notifications Windows) : elles ne volent pas le focus et le mode Concentration ne les bloque pas ;
+- **rappel plein écran épuré** pour ne rien rater (boutons +5 / +10 / +30 min, Entrée/Échap pour fermer) ;
+- **blacklist d'applications** et **détection des jeux plein écran, présentations et appels** : le rappel est reporté, réduit en notification ou ignoré ;
+- **fenêtre complète** (thème Windows 11 clair/sombre) :
+  - *À venir* : évènements, anniversaires et tâches jour par jour ;
+  - *Tâches* : toutes les tâches en cours, à cocher ou supprimer ;
+  - création d'**évènements** et de **tâches**, suppression, « Ouvrir dans Google » ;
+  - *Comptes* : **plusieurs comptes Google**, avec un sélecteur pour changer de compte affiché ;
+  - *Paramètres* : toutes les options, dont la blacklist (choix parmi les applications ouvertes) ;
+- cache local : les rappels marchent même hors ligne. Quand la fenêtre est fermée, l'app ne garde en mémoire que le moteur de rappels.
 
 ## Heure des tâches Google
 
@@ -24,13 +29,13 @@ L'API Google Tasks ne renvoie que la **date** d'échéance. L'heure choisie dans
    | `Faire 2h de sport` (durée)      | ignoré, heure par défaut |
 4. sinon, l'heure par défaut `DefaultTaskTime` (09:00).
 
-Ça marche aussi quand la tâche est créée depuis le téléphone : il suffit d'ajouter `⏰ 14h30` dans les notes.
+Ça marche aussi quand la tâche est créée depuis le téléphone : il suffit d'ajouter `⏰ 14h30` dans les notes. Une tâche créée **depuis l'app** avec une heure reçoit automatiquement ce marqueur.
 
 ### Module web : récupérer l'heure réelle des tâches (expérimental, désactivé par défaut)
 
 Ce module lit l'heure que tu as choisie dans Google, sans rien écrire dans la tâche. L'app ouvre Google Agenda dans un navigateur intégré invisible (Microsoft Edge WebView2, déjà présent sur Windows 10/11). Elle affiche la vue « jour » de chaque date qui a des tâches, et y lit l'heure affichée à côté de chaque tâche.
 
-**Activation :** menu → *Heure des tâches (module web)* → *Activer*, puis *Se connecter au site Google Agenda…* (une seule fois).
+**Activation :** *Paramètres* → *Heure réelle des tâches* → *Activer*, *Enregistrer*, puis *Se connecter au site Google…* (une seule fois).
 
 - Les tâches doivent être visibles dans Google Agenda (agenda « Tâches » coché dans la liste de gauche).
 - Lecture toutes les 30 min (`WebTaskTimesRefreshMinutes`). Le navigateur n'est lancé que le temps de la lecture.
@@ -44,7 +49,19 @@ Ce module lit l'heure que tu as choisie dans Google, sans rien écrire dans la t
 
 ## Installation
 
-### 1. Créer les identifiants Google (une seule fois, ~5 min)
+### 1. Installer l'app
+
+Télécharger **`AgendaReminder-Setup-x.y.z.exe`** :
+- depuis la page **Releases** du dépôt, si une version y est publiée ;
+- sinon depuis l'onglet **Actions** : dernier build réussi → section *Artifacts* → `AgendaReminder-Setup`.
+
+L'installation se fait pour l'utilisateur courant, **sans droits administrateur**. Elle crée un raccourci dans le menu Démarrer et propose le lancement au démarrage de Windows. La désinstallation se fait depuis *Paramètres Windows → Applications*.
+
+> L'exe n'est pas signé : Windows SmartScreen peut afficher « Windows a protégé votre ordinateur ». Cliquer sur *Informations complémentaires → Exécuter quand même*.
+
+Une version **portable** (un seul `.exe`, sans installation) est aussi disponible : artefact `AgendaReminder-portable`.
+
+### 2. Créer les identifiants Google (une seule fois, ~5 min)
 
 1. Sur <https://console.cloud.google.com/>, créer un projet.
 2. **API et services → Bibliothèque** : activer **Google Calendar API** et **Google Tasks API**.
@@ -55,19 +72,19 @@ Ce module lit l'heure que tu as choisie dans Google, sans rien écrire dans la t
 6. Dans la fenêtre qui s'affiche, cliquer sur **Télécharger le JSON**.
    ⚠️ Google ne montre le code secret **qu'une seule fois**, à la création. Si la fenêtre est fermée : *Clients* → cliquer sur le client → **Ajouter un code secret** (ou supprimer le client et en recréer un), puis télécharger le JSON.
 
-### 2. Lancer l'app
+### 3. Connecter l'app
 
-1. Télécharger `AgendaReminder.exe` depuis l'onglet **Actions** du dépôt (artefact `AgendaReminder-win-x64`), ou compiler (voir plus bas).
-2. Lancer l'exe : le dossier `%APPDATA%\AgendaReminder` s'ouvre.
-3. Y copier le JSON téléchargé en le renommant **`client_secret.json`**.
-4. Clic droit sur l'icône calendrier de la zone de notification → **Synchroniser maintenant**. Le navigateur s'ouvre pour autoriser l'accès (lecture seule).
-5. Optionnel : cocher **Lancer au démarrage de Windows**.
+Au premier lancement, l'app s'ouvre sur la page **Comptes** :
+1. **Importer client_secret.json…** : choisir le fichier téléchargé à l'étape 2.
+2. **Ajouter un compte** : le navigateur s'ouvre pour autoriser l'accès à Agenda et Tasks (lecture et écriture, pour pouvoir créer et cocher des éléments).
 
-Le menu **Tester** permet de voir une notification, le plein écran, et le nom exact du processus au premier plan (pratique pour remplir la blacklist).
+On peut ensuite ajouter d'autres comptes et les activer ou désactiver un par un.
+
+Ensuite, un clic sur l'icône de la zone de notification ouvre la fenêtre. Le clic droit donne un accès rapide : nouvelle tâche, nouvel évènement, synchroniser, quitter.
 
 ## Paramètres
 
-`%APPDATA%\AgendaReminder\settings.json` est rechargé à chaud dès qu'il est enregistré (menu → *Paramètres*). Voir [`settings.example.json`](settings.example.json).
+Tout se règle dans la page **Paramètres** de l'app. Le fichier `%APPDATA%\AgendaReminder\settings.json` reste modifiable à la main (il est rechargé à chaud), par exemple pour `IgnoredCalendarIds`. Voir [`settings.example.json`](settings.example.json).
 
 | Clé | Rôle |
 |-----|------|
@@ -87,16 +104,19 @@ Le menu **Tester** permet de voir une notification, le plein écran, et le nom e
 
 ## Développement
 
-- `src/AgendaReminder.Core` : modèles, synchro Google, résolution de l'heure des tâches, planification, règles de blacklist (multiplateforme, testé).
-- `src/AgendaReminder.App` : app WPF (.NET 8) : zone de notification, toasts, plein écran, détection de l'app au premier plan.
+- `src/AgendaReminder.Core` (.NET 8) : modèles, client Google multi-comptes (lecture et écriture), résolution de l'heure des tâches, planification, règles de blacklist, module web (correspondance des heures). Multiplateforme et testé.
+- `src/AgendaReminder.App` (.NET 10, WPF, thème Fluent natif) : zone de notification, fenêtre principale, toasts, plein écran, détection de l'app au premier plan, module WebView2.
 - `tests/AgendaReminder.Core.Tests` : tests xUnit.
+- `installer/AgendaReminder.iss` : installateur Inno Setup, compilé par la CI.
 
 ```bash
 dotnet test tests/AgendaReminder.Core.Tests
 ```
 
 ```bash
-dotnet publish src/AgendaReminder.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+dotnet publish src/AgendaReminder.App -c Release -r win-x64 --self-contained true -o publish
 ```
 
-Fichiers dans `%APPDATA%\AgendaReminder` : `settings.json`, `state.json` (rappels déjà vus, snoozes), `cache.json`, `token/` (jeton OAuth), `web_task_times.json` et `webview/` (module web), `app.log`.
+Pousser un tag `vX.Y.Z` publie automatiquement une **Release** GitHub avec l'installateur.
+
+Fichiers dans `%APPDATA%\AgendaReminder` : `settings.json`, `accounts.json` et `tokens/` (comptes), `state.json` (rappels déjà vus, snoozes), `cache.json`, `web_task_times.json` et `webview/` (module web), `app.log`.

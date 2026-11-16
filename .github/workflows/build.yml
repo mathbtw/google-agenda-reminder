@@ -2,8 +2,13 @@ name: build
 
 on:
   push:
+    branches: ['**']
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: write # pour publier une Release quand un tag v* est poussé
 
 jobs:
   build:
@@ -13,21 +18,57 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") { $v = "${{ github.ref_name }}".TrimStart('v') }
+          else { $v = "1.0.${{ github.run_number }}" }
+          "value=$v" >> $env:GITHUB_OUTPUT
 
       - name: Tests
         run: dotnet test tests/AgendaReminder.Core.Tests -c Release
 
-      - name: Publish (exe autonome)
+      - name: Publish (dossier pour l'installateur)
         run: >
-          dotnet publish src/AgendaReminder.App -c Release -r win-x64
-          --self-contained true
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:EnableCompressionInSingleFile=true
+          dotnet publish src/AgendaReminder.App -c Release -r win-x64 --self-contained true
+          -p:Version=${{ steps.version.outputs.value }}
           -o publish
+
+      - name: Installateur (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          & $iscc /Qp "/DMyAppVersion=${{ steps.version.outputs.value }}" installer\AgendaReminder.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Version portable (un seul exe)
+        run: >
+          dotnet publish src/AgendaReminder.App -c Release -r win-x64 --self-contained true
+          -p:Version=${{ steps.version.outputs.value }}
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
+          -o portable
 
       - uses: actions/upload-artifact@v4
         with:
-          name: AgendaReminder-win-x64
-          path: publish/AgendaReminder.exe
+          name: AgendaReminder-Setup
+          path: dist/*.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AgendaReminder-portable
+          path: portable/AgendaReminder.exe
+
+      - name: Release GitHub
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.exe
+          generate_release_notes: true
