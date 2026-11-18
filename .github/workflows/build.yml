@@ -6,6 +6,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Publier une Release avec cette version (ex. 1.0.0). Laisser vide pour un simple build."
+        required: false
+        default: ""
 
 permissions:
   contents: write # pour publier une Release quand un tag v* est poussé
@@ -26,7 +31,8 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          if ("${{ github.ref_type }}" -eq "tag") { $v = "${{ github.ref_name }}".TrimStart('v') }
+          if ("${{ inputs.release_version }}" -ne "") { $v = "${{ inputs.release_version }}".TrimStart('v') }
+          elseif ("${{ github.ref_type }}" -eq "tag") { $v = "${{ github.ref_name }}".TrimStart('v') }
           else { $v = "1.0.${{ github.run_number }}" }
           "value=$v" >> $env:GITHUB_OUTPUT
 
@@ -67,8 +73,21 @@ jobs:
           path: portable/AgendaReminder.exe
 
       - name: Release GitHub
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || inputs.release_version != ''
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.exe
+          # Crée le tag vX.Y.Z sur le commit construit s'il n'existe pas encore.
+          tag_name: v${{ steps.version.outputs.value }}
+          target_commitish: ${{ github.sha }}
+          name: Agenda Reminder ${{ steps.version.outputs.value }}
+          files: |
+            dist/*.exe
+            portable/AgendaReminder.exe
           generate_release_notes: true
+          body: |
+            ## Installation
+            Téléchargez **AgendaReminder-Setup-${{ steps.version.outputs.value }}.exe** ci-dessous et lancez-le (aucun droit administrateur requis).
+            `AgendaReminder.exe` seul = version portable, sans installation.
+
+            Windows SmartScreen peut avertir (exe non signé) : *Informations complémentaires → Exécuter quand même*.
+            Configuration Google : voir le [README](https://github.com/${{ github.repository }}#installation).
