@@ -14,7 +14,7 @@ public sealed record AccountRow(string Id, string Email, bool Enabled, string St
 
 public partial class AccountsPage : UserControl, IPage
 {
-    private const string GuideUrl = "https://github.com/mathbtw/google-agenda-windows#1-cr%C3%A9er-les-identifiants-google-une-seule-fois-5-min";
+    private const string GuideUrl = "https://github.com/mathbtw/google-agenda-reminder#1-cr%C3%A9er-les-identifiants-google-une-seule-fois-5-min";
 
     private readonly ReminderEngine _engine;
     private CancellationTokenSource? _adding;

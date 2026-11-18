@@ -24,8 +24,8 @@ internal sealed record UpdateInfo(Version Version, string PageUrl, string? Setup
 /// </summary>
 internal sealed class Updater : IDisposable
 {
-    private const string LatestReleaseApi = "https://api.github.com/repos/mathbtw/google-agenda-windows/releases/latest";
-    public const string ReleasesPage = "https://github.com/mathbtw/google-agenda-windows/releases/latest";
+    private const string LatestReleaseApi = "https://api.github.com/repos/mathbtw/google-agenda-reminder/releases/latest";
+    public const string ReleasesPage = "https://github.com/mathbtw/google-agenda-reminder/releases/latest";
 
     private static readonly HttpClient Http = CreateHttp();
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromHours(6) };
