@@ -21,6 +21,8 @@ public partial class SettingsPage : UserControl, IPage
     private readonly ReminderEngine _engine;
     private AppSettings _draft = new();
     private ObservableCollection<BlacklistEntry> _blacklist = new();
+    private readonly Dictionary<ReminderKind, string> _colors = new();
+    private ReminderKind? _colorTarget;
 
     internal SettingsPage(ReminderEngine engine)
     {
@@ -30,8 +32,15 @@ public partial class SettingsPage : UserControl, IPage
         _engine.StatusChanged += OnStatusChanged;
         Unloaded += (_, _) => _engine.StatusChanged -= OnStatusChanged;
 
-        var version = Assembly.GetExecutingAssembly().GetName().Version;
-        VersionText.Text = $"Agenda Reminder {version?.ToString(3)}";
+        VersionText.Text = $"Agenda Reminder {Updater.Current}";
+        BuildPalette();
+
+        if (App.Updates is { } updates)
+        {
+            updates.Changed += OnUpdatesChanged;
+            Unloaded += (_, _) => updates.Changed -= OnUpdatesChanged;
+        }
+        OnUpdatesChanged();
     }
 
     /// <summary>Pas de rechargement automatique : on ne veut pas écraser une saisie en cours.</summary>
@@ -46,17 +55,21 @@ public partial class SettingsPage : UserControl, IPage
             JsonSerializer.Serialize(_engine.Settings, JsonFileStore.Options), JsonFileStore.Options) ?? new AppSettings();
         var s = _draft;
 
-        EventMinutes.Text = Ui.FormatIntList(s.DefaultEventReminderMinutes);
-        RemindAtStart.IsChecked = s.AlsoRemindAtEventStart;
+        LoadKind(s, ReminderKind.Event, EventNotif, EventFull);
+        LoadKind(s, ReminderKind.Task, TaskNotif, TaskFull);
+        LoadKind(s, ReminderKind.Birthday, BirthdayNotif, BirthdayFull);
+        GoogleStyle.SelectedValue = s.GoogleRemindersStyle;
+        UseGoogleColors.IsChecked = s.UseGoogleCalendarColors;
+        foreach (var kind in new[] { ReminderKind.Event, ReminderKind.Task, ReminderKind.Birthday })
+            _colors[kind] = s.ColorFor(kind);
+        UpdateSwatches();
+        ColorPanel.Visibility = Visibility.Collapsed;
+
         AllDayTime.Text = s.AllDayReminderTime;
         BirthdayTime.Text = s.BirthdayReminderTime;
         TaskTime.Text = s.DefaultTaskTime;
-        TaskMinutes.Text = Ui.FormatIntList(s.TaskReminderMinutes);
         GraceMinutes.Text = s.MissedReminderGraceMinutes.ToString();
 
-        EventStyle.SelectedValue = StyleOf(s, ReminderKind.Event);
-        TaskStyle.SelectedValue = StyleOf(s, ReminderKind.Task);
-        BirthdayStyle.SelectedValue = StyleOf(s, ReminderKind.Birthday);
         ToastSeconds.Text = s.ToastDurationSeconds.ToString();
         SnoozeOptions.Text = Ui.FormatIntList(s.SnoozeOptionsMinutes);
         PlaySound.IsChecked = s.PlaySound;
@@ -75,28 +88,42 @@ public partial class SettingsPage : UserControl, IPage
         WebStatus.Text = "État : " + _engine.WebStatus;
 
         StartWithWindows.IsChecked = StartupRegistration.IsEnabled;
+        AutoUpdate.IsChecked = s.CheckForUpdates;
         SavedText.Text = "";
     }
 
-    private static DisplayStyle StyleOf(AppSettings s, ReminderKind kind) =>
-        s.Display.TryGetValue(kind, out var style) ? style : DisplayStyle.Toast;
+    private static void LoadKind(AppSettings s, ReminderKind kind, TextBox notif, TextBox full)
+    {
+        var r = s.RemindersFor(kind);
+        notif.Text = Ui.FormatIntList(r.NotificationMinutes);
+        full.Text = Ui.FormatIntList(r.FullScreenMinutes);
+    }
+
+    private static KindReminders ReadKind(string name, TextBox notif, TextBox full, List<string> errors) => new()
+    {
+        NotificationMinutes = IntList(notif, name + " (notification)", errors),
+        FullScreenMinutes = IntList(full, name + " (plein écran)", errors),
+    };
 
     private void OnSave(object sender, RoutedEventArgs e)
     {
         var errors = new List<string>();
         var s = _draft;
 
-        s.DefaultEventReminderMinutes = IntList(EventMinutes, "Rappels des évènements", errors);
-        s.AlsoRemindAtEventStart = RemindAtStart.IsChecked == true;
+        s.Reminders = new Dictionary<ReminderKind, KindReminders>
+        {
+            [ReminderKind.Event] = ReadKind("Évènements", EventNotif, EventFull, errors),
+            [ReminderKind.Task] = ReadKind("Tâches", TaskNotif, TaskFull, errors),
+            [ReminderKind.Birthday] = ReadKind("Anniversaires", BirthdayNotif, BirthdayFull, errors),
+        };
+        s.GoogleRemindersStyle = (DisplayStyle)(GoogleStyle.SelectedValue ?? DisplayStyle.Toast);
+        s.UseGoogleCalendarColors = UseGoogleColors.IsChecked == true;
+        s.Colors = new Dictionary<ReminderKind, string>(_colors);
         s.AllDayReminderTime = Time(AllDayTime, "Heure « journée entière »", errors);
         s.BirthdayReminderTime = Time(BirthdayTime, "Heure des anniversaires", errors);
         s.DefaultTaskTime = Time(TaskTime, "Heure des tâches", errors);
-        s.TaskReminderMinutes = IntList(TaskMinutes, "Rappels des tâches", errors);
         s.MissedReminderGraceMinutes = Int(GraceMinutes, "Rappel manqué", 0, 1440, errors);
 
-        s.Display[ReminderKind.Event] = (DisplayStyle)(EventStyle.SelectedValue ?? DisplayStyle.FullScreen);
-        s.Display[ReminderKind.Task] = (DisplayStyle)(TaskStyle.SelectedValue ?? DisplayStyle.FullScreen);
-        s.Display[ReminderKind.Birthday] = (DisplayStyle)(BirthdayStyle.SelectedValue ?? DisplayStyle.Toast);
         s.ToastDurationSeconds = Int(ToastSeconds, "Durée des notifications", 0, 3600, errors);
         s.SnoozeOptionsMinutes = IntList(SnoozeOptions, "Boutons « Rappeler dans »", errors);
         s.PlaySound = PlaySound.IsChecked == true;
@@ -112,6 +139,7 @@ public partial class SettingsPage : UserControl, IPage
 
         s.EnableWebTaskTimes = WebEnabled.IsChecked == true;
         s.WebTaskTimesRefreshMinutes = Int(WebMinutes, "Lecture du module web", 5, 1440, errors);
+        s.CheckForUpdates = AutoUpdate.IsChecked == true;
 
         if (errors.Count > 0)
         {
@@ -153,6 +181,91 @@ public partial class SettingsPage : UserControl, IPage
         if (Ui.TryParseTime(box.Text, out var t)) return t.ToString("HH\\:mm");
         errors.Add($"{name} : heure invalide (ex. 09:00)");
         return "09:00";
+    }
+
+    // ───────── Couleurs ─────────
+
+    private void BuildPalette()
+    {
+        foreach (var (name, hex) in Ui.Palette)
+        {
+            var swatch = new Button
+            {
+                Width = 30, Height = 30, Margin = new Thickness(0, 0, 6, 6), Padding = new Thickness(0),
+                ToolTip = $"{name} ({hex})", Tag = hex, Cursor = System.Windows.Input.Cursors.Hand,
+                Content = new Border { Width = 22, Height = 22, CornerRadius = new CornerRadius(11), Background = Ui.BrushFromHex(hex) },
+            };
+            swatch.Click += (_, _) => SetColor(hex);
+            PaletteHost.Children.Add(swatch);
+        }
+    }
+
+    private void UpdateSwatches()
+    {
+        void Paint(Button b, ReminderKind k) => b.Content = new Border
+        {
+            Width = 40, Height = 16, CornerRadius = new CornerRadius(4), Background = Ui.BrushFromHex(_colors[k]),
+        };
+        Paint(EventColor, ReminderKind.Event);
+        Paint(TaskColor, ReminderKind.Task);
+        Paint(BirthdayColor, ReminderKind.Birthday);
+    }
+
+    private void OnPickColor(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string tag } || !Enum.TryParse<ReminderKind>(tag, out var kind)) return;
+        _colorTarget = kind;
+        ColorPanelTitle.Text = kind switch
+        {
+            ReminderKind.Task => "Couleur des tâches",
+            ReminderKind.Birthday => "Couleur des anniversaires",
+            _ => "Couleur des évènements",
+        };
+        HexBox.Text = _colors[kind];
+        ColorPanel.Visibility = Visibility.Visible;
+    }
+
+    private void SetColor(string hex)
+    {
+        if (_colorTarget is not { } kind) return;
+        _colors[kind] = hex.ToUpperInvariant();
+        HexBox.Text = _colors[kind];
+        UpdateSwatches();
+        SavedText.Text = "Modifications non enregistrées";
+    }
+
+    private void OnApplyHex(object sender, RoutedEventArgs e)
+    {
+        var hex = HexBox.Text.Trim();
+        if (!hex.StartsWith('#')) hex = "#" + hex;
+        if (!Ui.TryParseColor(hex, out _)) { Ui.Error(this, "Couleur invalide : utilisez le format #RRGGBB (ex. #4C8BF5)."); return; }
+        SetColor(hex);
+    }
+
+    private void OnCloseColor(object sender, RoutedEventArgs e) => ColorPanel.Visibility = Visibility.Collapsed;
+
+    // ───────── Mises à jour ─────────
+
+    private void OnUpdatesChanged() => Dispatcher.BeginInvoke(() =>
+    {
+        var updates = App.Updates;
+        UpdateStatus.Text = updates is null ? "" : updates.Status;
+        InstallUpdateButton.Visibility = updates?.Available is null ? Visibility.Collapsed : Visibility.Visible;
+        InstallUpdateButton.Content = updates?.Available is { } a
+            ? (Updater.IsInstalled ? $"Installer la version {a.Version}" : $"Télécharger la version {a.Version}")
+            : "";
+    });
+
+    private async void OnCheckUpdate(object sender, RoutedEventArgs e)
+    {
+        if (App.Updates is not { } updates) return;
+        await updates.CheckAsync();
+    }
+
+    private async void OnInstallUpdate(object sender, RoutedEventArgs e)
+    {
+        if (App.Updates is not { } updates) return;
+        await Ui.RunAsync((FrameworkElement)sender, () => updates.InstallAsync());
     }
 
     // ───────── Blacklist ─────────

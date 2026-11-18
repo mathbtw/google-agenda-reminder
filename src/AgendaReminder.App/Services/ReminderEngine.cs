@@ -71,8 +71,12 @@ internal sealed class ReminderEngine : IDisposable
     /// <summary>Heures de tâches lues par le module web, pour la page "Tâches".</summary>
     public IReadOnlyDictionary<string, TimeOnly>? WebTimes => Settings.EnableWebTaskTimes ? _webTimes : null;
 
+    /// <summary>Instance unique (l'app n'a qu'un moteur), pour les couleurs et l'accès global aux paramètres.</summary>
+    public static ReminderEngine? Current { get; private set; }
+
     public ReminderEngine()
     {
+        Current = this;
         Settings = JsonFileStore.LoadOrCreate(AppPaths.Settings, () => new AppSettings());
         _state = JsonFileStore.LoadOrCreate(AppPaths.State, () => new ReminderState(), writeIfMissing: false);
         // Cache local : les rappels fonctionnent même sans réseau.
@@ -402,7 +406,7 @@ internal sealed class ReminderEngine : IDisposable
 
         foreach (var reminder in due.OrderBy(d => d.FireAt))
         {
-            var style = Settings.Display.TryGetValue(reminder.Item.Kind, out var s) ? s : DisplayStyle.Toast;
+            var style = reminder.Style;
             var postponedFor = _postponed.TryGetValue(reminder.Key, out var p) ? now - p.Since : TimeSpan.Zero;
             var decision = DisplayPolicy.Decide(style, foreground, Settings, postponedFor);
 
@@ -449,7 +453,7 @@ internal sealed class ReminderEngine : IDisposable
         if (Settings.PlaySound)
             System.Media.SystemSounds.Asterisk.Play();
         _toasts.Show(new ReminderView { Item = item }, Settings.SnoozeOptionsMinutes, Settings.ToastDurationSeconds,
-            minutes => Snooze(item, minutes));
+            minutes => Snooze(item, minutes, DisplayStyle.Toast));
     }
 
     public void ShowFullScreen(IEnumerable<ReminderItem> items)
@@ -462,7 +466,7 @@ internal sealed class ReminderEngine : IDisposable
             _fullScreen = new FullScreenReminderWindow(Settings.SnoozeOptionsMinutes);
             _fullScreen.Snoozed += (shown, minutes) =>
             {
-                foreach (var v in shown) Snooze(v.Item, minutes);
+                foreach (var v in shown) Snooze(v.Item, minutes, DisplayStyle.FullScreen);
             };
             _fullScreen.Closed += (_, _) => _fullScreen = null;
             _fullScreen.Add(views);
@@ -475,9 +479,9 @@ internal sealed class ReminderEngine : IDisposable
         }
     }
 
-    private void Snooze(ReminderItem item, int minutes)
+    private void Snooze(ReminderItem item, int minutes, DisplayStyle style)
     {
-        ReminderScheduler.AddSnooze(_state, item, DateTimeOffset.Now.AddMinutes(minutes));
+        ReminderScheduler.AddSnooze(_state, item, DateTimeOffset.Now.AddMinutes(minutes), style);
         SaveState();
         StatusChanged?.Invoke();
     }

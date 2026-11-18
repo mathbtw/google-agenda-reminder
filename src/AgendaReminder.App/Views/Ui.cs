@@ -27,6 +27,13 @@ public static class Choices
         new(DisplayStyle.None, "Rien"),
     };
 
+    public static Choice<DisplayStyle>[] GoogleReminderStyles { get; } =
+    {
+        new(DisplayStyle.Toast, "Notification"),
+        new(DisplayStyle.FullScreen, "Plein écran"),
+        new(DisplayStyle.None, "Ignorer"),
+    };
+
     public static Choice<BlacklistAction>[] BlacklistActions { get; } =
     {
         new(BlacklistAction.Postpone, "Reporter jusqu'à ce que l'app soit quittée"),
@@ -51,11 +58,50 @@ internal static class Ui
 {
     public static readonly CultureInfo Fr = CultureInfo.GetCultureInfo("fr-FR");
 
-    public static Brush AccentFor(ReminderKind kind) => kind switch
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Brush> BrushCache = new();
+
+    /// <summary>Couleur d'un élément selon les paramètres (couleur du type, ou couleur Google pour les évènements).</summary>
+    public static Brush AccentFor(ReminderItem item)
     {
-        ReminderKind.Birthday => Frozen(0xF5, 0xA0, 0x4C),
-        ReminderKind.Task => Frozen(0x34, 0xC3, 0x8F),
-        _ => Frozen(0x4C, 0x8B, 0xF5),
+        var settings = ReminderEngine.Current?.Settings;
+        if (settings is null) return BrushFromHex(AppSettings.DefaultColors()[item.Kind]);
+        if (item.Kind == ReminderKind.Event && settings.UseGoogleCalendarColors && !string.IsNullOrWhiteSpace(item.GoogleColor))
+            return BrushFromHex(item.GoogleColor!);
+        return BrushFromHex(settings.ColorFor(item.Kind));
+    }
+
+    public static Brush AccentFor(ReminderKind kind) =>
+        BrushFromHex(ReminderEngine.Current?.Settings.ColorFor(kind) ?? AppSettings.DefaultColors()[kind]);
+
+    /// <summary>"#RRGGBB" -> pinceau (gris si la valeur est invalide).</summary>
+    public static Brush BrushFromHex(string hex) => BrushCache.GetOrAdd(hex.Trim().ToUpperInvariant(), h =>
+    {
+        if (TryParseColor(h, out var c))
+        {
+            var brush = new SolidColorBrush(c);
+            brush.Freeze();
+            return brush;
+        }
+        return Frozen(0x88, 0x88, 0x88);
+    });
+
+    public static bool TryParseColor(string? hex, out Color color)
+    {
+        color = default;
+        if (string.IsNullOrWhiteSpace(hex)) return false;
+        var h = hex.Trim().TrimStart('#');
+        if (h.Length != 6 || !int.TryParse(h, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var v)) return false;
+        color = Color.FromRgb((byte)(v >> 16), (byte)(v >> 8), (byte)v);
+        return true;
+    }
+
+    /// <summary>Palette proposée dans les paramètres (couleurs proches de celles de Google Agenda).</summary>
+    public static readonly (string Name, string Hex)[] Palette =
+    {
+        ("Bleu", "#4C8BF5"), ("Myrtille", "#3F51B5"), ("Lavande", "#7986CB"), ("Raisin", "#8E24AA"),
+        ("Flamant", "#E67C73"), ("Tomate", "#D50000"), ("Mandarine", "#F4511E"), ("Banane", "#F6BF26"),
+        ("Sauge", "#33B679"), ("Basilic", "#0B8043"), ("Paon", "#039BE5"), ("Graphite", "#616161"),
+        ("Menthe", "#34C38F"), ("Abricot", "#F5A04C"), ("Rose", "#EC4899"), ("Violet", "#A855F7"),
     };
 
     public static Brush Frozen(byte r, byte g, byte b)

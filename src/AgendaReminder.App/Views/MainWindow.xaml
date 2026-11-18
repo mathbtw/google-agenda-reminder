@@ -68,6 +68,18 @@
         </Border>
 
         <!-- Contenu -->
-        <ContentControl x:Name="PageHost" Grid.Column="1" Margin="28,20,28,16" Focusable="False" />
+        <DockPanel Grid.Column="1">
+            <!-- Bandeau de mise à jour -->
+            <Border x:Name="UpdateBanner" DockPanel.Dock="Top" Visibility="Collapsed" Margin="28,14,28,0"
+                    Padding="14,10" CornerRadius="8" BorderThickness="1"
+                    BorderBrush="{DynamicResource AccentFillColorDefaultBrush}">
+                <DockPanel>
+                    <Button x:Name="UpdateButton" DockPanel.Dock="Right" Style="{DynamicResource AccentButtonStyle}" Click="OnInstallUpdate" />
+                    <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE895;" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBlock x:Name="UpdateText" VerticalAlignment="Center" TextWrapping="Wrap" />
+                </DockPanel>
+            </Border>
+            <ContentControl x:Name="PageHost" Margin="28,20,28,16" Focusable="False" />
+        </DockPanel>
     </Grid>
 </Window>

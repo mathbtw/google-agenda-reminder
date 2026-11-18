@@ -31,6 +31,24 @@ public enum BlacklistAction
     Silent,
 }
 
+/// <summary>
+/// Rappels d'un type d'élément. Minutes avant le début (évènement), l'heure de la tâche, ou l'heure
+/// de rappel des anniversaires / évènements "journée entière". Liste vide = pas de rappel de cette forme.
+/// </summary>
+public sealed class KindReminders
+{
+    public List<int> NotificationMinutes { get; set; } = new();
+
+    public List<int> FullScreenMinutes { get; set; } = new();
+
+    public static Dictionary<ReminderKind, KindReminders> Defaults() => new()
+    {
+        [ReminderKind.Event] = new() { NotificationMinutes = { 10 }, FullScreenMinutes = { 2 } },
+        [ReminderKind.Task] = new() { NotificationMinutes = { 10 }, FullScreenMinutes = { 0 } },
+        [ReminderKind.Birthday] = new() { NotificationMinutes = { 0 } },
+    };
+}
+
 public sealed class BlacklistEntry
 {
     /// <summary>Nom du processus, avec ou sans ".exe" (insensible à la casse). Ex : "valorant.exe", "obs64".</summary>
@@ -47,17 +65,43 @@ public sealed class AppSettings
     /// <summary>Nombre de jours à l'avance récupérés depuis Google.</summary>
     public int LookAheadDays { get; set; } = 14;
 
-    /// <summary>Rappel par défaut (minutes avant) pour un évènement sans rappel configuré dans Google. Vide = aucun.</summary>
-    public List<int> DefaultEventReminderMinutes { get; set; } = new() { 10 };
+    /// <summary>
+    /// Rappels de l'app pour chaque type d'élément : notifications et plein écran, chacun à ses propres
+    /// moments (minutes avant). Ex. évènements : notification 10 min avant, plein écran 2 min avant.
+    /// </summary>
+    public Dictionary<ReminderKind, KindReminders> Reminders { get; set; } = KindReminders.Defaults();
 
-    /// <summary>Rappel supplémentaire au moment exact du début de l'évènement.</summary>
-    public bool AlsoRemindAtEventStart { get; set; } = false;
+    /// <summary>Forme des rappels déjà configurés dans Google sur les évènements (None = les ignorer).</summary>
+    public DisplayStyle GoogleRemindersStyle { get; set; } = DisplayStyle.Toast;
+
+    /// <summary>Réglages d'un type, avec repli sur les valeurs par défaut s'il manque dans le fichier.</summary>
+    public KindReminders RemindersFor(ReminderKind kind) =>
+        Reminders.TryGetValue(kind, out var r) && r is not null ? r : KindReminders.Defaults()[kind];
 
     /// <summary>Heure du rappel pour les évènements "journée entière" (format HH:mm).</summary>
     public string AllDayReminderTime { get; set; } = "09:00";
 
     /// <summary>Heure du rappel pour les anniversaires (format HH:mm).</summary>
     public string BirthdayReminderTime { get; set; } = "09:00";
+
+    /// <summary>Couleur de chaque type d'élément (#RRGGBB).</summary>
+    public Dictionary<ReminderKind, string> Colors { get; set; } = DefaultColors();
+
+    /// <summary>Évènements : utiliser la couleur affichée dans Google Agenda (évènement ou agenda) plutôt que la couleur ci-dessus.</summary>
+    public bool UseGoogleCalendarColors { get; set; } = false;
+
+    public static Dictionary<ReminderKind, string> DefaultColors() => new()
+    {
+        [ReminderKind.Event] = "#4C8BF5",
+        [ReminderKind.Task] = "#34C38F",
+        [ReminderKind.Birthday] = "#F5A04C",
+    };
+
+    public string ColorFor(ReminderKind kind) =>
+        Colors.TryGetValue(kind, out var c) && !string.IsNullOrWhiteSpace(c) ? c : DefaultColors()[kind];
+
+    /// <summary>Vérifie au démarrage puis toutes les 6 h si une nouvelle version est publiée.</summary>
+    public bool CheckForUpdates { get; set; } = true;
 
     /// <summary>
     /// Heure utilisée pour une tâche quand aucune heure n'est trouvée (l'API Google Tasks ne fournit que la date).
@@ -73,17 +117,6 @@ public sealed class AppSettings
 
     /// <summary>Fréquence de lecture du site Google Agenda par le module web, en minutes.</summary>
     public int WebTaskTimesRefreshMinutes { get; set; } = 30;
-
-    /// <summary>Rappels (minutes avant l'heure résolue) pour les tâches. 0 = à l'heure pile.</summary>
-    public List<int> TaskReminderMinutes { get; set; } = new() { 0 };
-
-    /// <summary>Style d'affichage par type d'élément.</summary>
-    public Dictionary<ReminderKind, DisplayStyle> Display { get; set; } = new()
-    {
-        [ReminderKind.Event] = DisplayStyle.FullScreen,
-        [ReminderKind.Birthday] = DisplayStyle.Toast,
-        [ReminderKind.Task] = DisplayStyle.FullScreen,
-    };
 
     /// <summary>Applications qui bloquent ou modifient l'affichage des rappels.</summary>
     public List<BlacklistEntry> Blacklist { get; set; } = new()

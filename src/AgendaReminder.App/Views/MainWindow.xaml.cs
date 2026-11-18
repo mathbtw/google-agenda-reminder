@@ -35,6 +35,13 @@ public partial class MainWindow : Window
         _engine.StatusChanged += OnStatusChanged;
         _engine.ItemsChanged += OnItemsChanged;
         _engine.Accounts.Changed += OnAccountsChanged;
+        if (App.Updates is { } updates)
+        {
+            updates.Changed += OnUpdatesChanged;
+            Closed += (_, _) => updates.Changed -= OnUpdatesChanged;
+        }
+        OnUpdatesChanged();
+
         Closed += (_, _) =>
         {
             _engine.StatusChanged -= OnStatusChanged;
@@ -117,4 +124,26 @@ public partial class MainWindow : Window
     }
 
     private async void OnSync(object sender, RoutedEventArgs e) => await _engine.SyncAsync();
+
+    private void OnUpdatesChanged() => Dispatcher.BeginInvoke(() =>
+    {
+        var updates = App.Updates;
+        if (updates?.Available is not { } info)
+        {
+            UpdateBanner.Visibility = Visibility.Collapsed;
+            return;
+        }
+        UpdateBanner.Visibility = Visibility.Visible;
+        UpdateText.Text = updates.IsBusy && updates.Status.StartsWith("Téléchargement")
+            ? updates.Status
+            : $"Agenda Reminder {info.Version} est disponible (vous avez la {Updater.Current}).";
+        UpdateButton.Content = Updater.IsInstalled ? "Mettre à jour" : "Télécharger";
+        UpdateButton.IsEnabled = !updates.IsBusy;
+    });
+
+    private async void OnInstallUpdate(object sender, RoutedEventArgs e)
+    {
+        if (App.Updates is { } updates)
+            await Ui.RunAsync(UpdateButton, () => updates.InstallAsync());
+    }
 }

@@ -1,4 +1,9 @@
+using AgendaReminder.Core.Settings;
+
 namespace AgendaReminder.Core.Models;
+
+/// <summary>Un déclenchement de rappel : à quel moment, et sous quelle forme.</summary>
+public sealed record ReminderTrigger(DateTimeOffset At, DisplayStyle Style);
 
 public enum ReminderKind
 {
@@ -34,7 +39,7 @@ public sealed record ReminderItem
     public string? Source { get; init; }
 
     /// <summary>Moments auxquels un rappel doit se déclencher.</summary>
-    public IReadOnlyList<DateTimeOffset> Triggers { get; init; } = Array.Empty<DateTimeOffset>();
+    public IReadOnlyList<ReminderTrigger> Triggers { get; init; } = Array.Empty<ReminderTrigger>();
 
     /// <summary>Pour une tâche : vrai si l'heure vient d'une indication explicite (API ou notes), faux si heure par défaut.</summary>
     public bool HasExplicitTime { get; init; } = true;
@@ -47,6 +52,9 @@ public sealed record ReminderItem
 
     /// <summary>Identifiant Google de l'évènement ou de la tâche.</summary>
     public string? SourceId { get; init; }
+
+    /// <summary>Couleur Google de l'évènement ou de son agenda (#RRGGBB), si connue.</summary>
+    public string? GoogleColor { get; init; }
 
     /// <summary>Lien vers l'élément sur le site Google.</summary>
     public string? Link { get; init; }

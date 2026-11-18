@@ -52,11 +52,14 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Tasks: desktopicon
 
 [Registry]
+; Pas lors d'une mise à jour silencieuse : on respecte le réglage choisi depuis l'app.
 Root: HKCU; Subkey: "{#RunKey}"; ValueType: string; ValueName: "AgendaReminder"; \
-  ValueData: """{app}\{#MyAppExe}"" --background"; Tasks: startup
+  ValueData: """{app}\{#MyAppExe}"" --background"; Tasks: startup; Check: not WizardSilent
 
 [Run]
 Filename: "{app}\{#MyAppExe}"; Description: "Lancer {#MyAppName}"; Flags: nowait postinstall skipifsilent
+; Mise à jour silencieuse lancée depuis l'app : on relance l'app une fois la mise à jour terminée.
+Filename: "{app}\{#MyAppExe}"; Flags: nowait; Check: WizardSilent
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/im {#MyAppExe} /f"; Flags: runhidden; RunOnceId: "StopApp"

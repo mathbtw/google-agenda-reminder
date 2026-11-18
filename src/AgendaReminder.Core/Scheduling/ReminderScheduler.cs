@@ -1,4 +1,5 @@
 using AgendaReminder.Core.Models;
+using AgendaReminder.Core.Settings;
 
 namespace AgendaReminder.Core.Scheduling;
 
@@ -8,6 +9,9 @@ public sealed class Snooze
     public required ReminderItem Item { get; init; }
 
     public required DateTimeOffset FireAt { get; init; }
+
+    /// <summary>Forme du rappel reporté (celle du rappel d'origine).</summary>
+    public DisplayStyle Style { get; init; } = DisplayStyle.FullScreen;
 }
 
 /// <summary>État persistant du moteur (rappels déjà affichés, snoozes en cours).</summary>
@@ -19,7 +23,7 @@ public sealed class ReminderState
     public List<Snooze> Snoozes { get; set; } = new();
 }
 
-public sealed record DueReminder(ReminderItem Item, DateTimeOffset FireAt, string Key, bool IsSnooze);
+public sealed record DueReminder(ReminderItem Item, DateTimeOffset FireAt, string Key, bool IsSnooze, DisplayStyle Style);
 
 public static class ReminderScheduler
 {
@@ -38,19 +42,19 @@ public static class ReminderScheduler
         {
             foreach (var trigger in item.Triggers)
             {
-                if (trigger > now || now - trigger > grace)
+                if (trigger.At > now || now - trigger.At > grace)
                     continue;
-                var key = KeyFor(item, trigger);
+                var key = KeyFor(item, trigger.At);
                 if (state.Fired.ContainsKey(key))
                     continue;
-                due.Add(new DueReminder(item, trigger, key, IsSnooze: false));
+                due.Add(new DueReminder(item, trigger.At, key, IsSnooze: false, trigger.Style));
             }
         }
 
         foreach (var snooze in state.Snoozes)
         {
             if (snooze.FireAt <= now)
-                due.Add(new DueReminder(snooze.Item, snooze.FireAt, "snooze|" + KeyFor(snooze.Item, snooze.FireAt), IsSnooze: true));
+                due.Add(new DueReminder(snooze.Item, snooze.FireAt, "snooze|" + KeyFor(snooze.Item, snooze.FireAt), IsSnooze: true, snooze.Style));
         }
 
         // Si un élément a plusieurs rappels en retard, on n'affiche que le plus récent ;
@@ -75,10 +79,10 @@ public static class ReminderScheduler
             state.Fired[reminder.Key] = reminder.FireAt;
     }
 
-    public static void AddSnooze(ReminderState state, ReminderItem item, DateTimeOffset fireAt)
+    public static void AddSnooze(ReminderState state, ReminderItem item, DateTimeOffset fireAt, DisplayStyle style)
     {
         state.Snoozes.RemoveAll(s => s.Item.Id == item.Id);
-        state.Snoozes.Add(new Snooze { Item = item, FireAt = fireAt });
+        state.Snoozes.Add(new Snooze { Item = item, FireAt = fireAt, Style = style });
     }
 
     /// <summary>Retire les entrées "Fired" trop anciennes pour garder le fichier d'état petit.</summary>
@@ -92,7 +96,7 @@ public static class ReminderScheduler
     public static IEnumerable<(ReminderItem Item, DateTimeOffset FireAt)> Upcoming(IEnumerable<ReminderItem> items, ReminderState state, DateTimeOffset now)
     {
         return items
-            .SelectMany(i => i.Triggers.Where(t => t > now).Select(t => (Item: i, FireAt: t)))
+            .SelectMany(i => i.Triggers.Where(t => t.At > now).Select(t => (Item: i, FireAt: t.At)))
             .Concat(state.Snoozes.Where(s => s.FireAt > now).Select(s => (Item: s.Item, FireAt: s.FireAt)))
             .OrderBy(x => x.FireAt);
     }

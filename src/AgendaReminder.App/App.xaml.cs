@@ -20,6 +20,11 @@ public partial class App : Application
     private ReminderEngine? _engine;
     private TrayIcon? _tray;
     private MainWindow? _main;
+    private Updater? _updates;
+    private Version? _notifiedVersion;
+
+    /// <summary>Service de mise à jour (null avant le démarrage).</summary>
+    internal static Updater? Updates => Instance._updates;
 
     private static App Instance => (App)Current;
 
@@ -49,6 +54,10 @@ public partial class App : Application
         _tray = new TrayIcon(_engine, () => Shutdown());
         ListenForShowRequests();
 
+        _updates = new Updater(() => _engine.Settings.CheckForUpdates);
+        _updates.Changed += OnUpdatesChanged;
+        _updates.Start();
+
         var startedByWindows = Array.Exists(e.Args, a => a.Equals("--background", StringComparison.OrdinalIgnoreCase));
         if (!GoogleAccountClient.HasClientSecret || _engine.Accounts.Accounts.Count == 0)
             ShowMainWindow("accounts"); // première utilisation : on guide la configuration
@@ -56,6 +65,16 @@ public partial class App : Application
             ShowMainWindow();
 
         _engine.Start();
+
+    }
+
+    /// <summary>Nouvelle version détectée : une notification de la zone de notification (une fois par version).</summary>
+    private void OnUpdatesChanged()
+    {
+        if (_updates?.Available is not { } info || info.Version == _notifiedVersion) return;
+        _notifiedVersion = info.Version;
+        _tray?.ShowBalloon("Mise à jour disponible",
+            $"Agenda Reminder {info.Version} est disponible. Ouvrez l'app pour l'installer.");
     }
 
     /// <summary>Un second lancement de l'exe signale cet évènement : on affiche la fenêtre principale.</summary>
@@ -103,6 +122,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _updates?.Dispose();
         _tray?.Dispose();
         _engine?.Dispose();
         _showSignal?.Dispose();

@@ -19,7 +19,7 @@ public sealed class UpcomingRow
     public required string Subtitle { get; init; }
 
     public string Title => Item.Title;
-    public Brush Accent => Ui.AccentFor(Item.Kind);
+    public Brush Accent => Ui.AccentFor(Item);
 
     public string KindLabel => Item.Kind switch
     {

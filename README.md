@@ -4,6 +4,9 @@ Application légère pour **Google Agenda** (évènements, anniversaires) et **G
 
 - **notifications maison** (pas les notifications Windows) : elles ne volent pas le focus et le mode Concentration ne les bloque pas ;
 - **rappel plein écran épuré** pour ne rien rater (boutons +5 / +10 / +30 min, Entrée/Échap pour fermer) ;
+- **les deux, chacun à son moment** : par exemple une notification 10 min avant, puis le plein écran 2 min avant. Réglable par type (évènements, tâches, anniversaires) ;
+- **couleurs personnalisables** par type, ou couleur de Google Agenda pour les évènements ;
+- **mises à jour intégrées** : l'app détecte les nouvelles versions et s'installe en un clic ;
 - **blacklist d'applications** et **détection des jeux plein écran, présentations et appels** : le rappel est reporté, réduit en notification ou ignoré ;
 - **fenêtre complète** (thème Windows 11 clair/sombre) :
   - *À venir* : évènements, anniversaires et tâches jour par jour ;
@@ -88,16 +91,17 @@ Tout se règle dans la page **Paramètres** de l'app. Le fichier `%APPDATA%\Agen
 
 | Clé | Rôle |
 |-----|------|
-| `Display` | `FullScreen`, `Toast` ou `None` pour `Event`, `Birthday`, `Task` |
+| `Reminders` | Par type (`Event`, `Task`, `Birthday`) : `NotificationMinutes` et `FullScreenMinutes`, en minutes avant. Si les deux tombent au même moment, le plein écran l'emporte |
+| `GoogleRemindersStyle` | Forme des rappels déjà définis dans Google sur les évènements : `Toast`, `FullScreen` ou `None` (ignorés) |
+| `Colors`, `UseGoogleCalendarColors` | Couleur par type (`#RRGGBB`), ou couleur Google pour les évènements |
 | `Blacklist` | `[{ "Process": "valorant.exe", "Action": "Postpone" }]`. Actions : `Postpone` (attend que l'app ne soit plus au premier plan), `ToastOnly` (petit toast au lieu du plein écran), `Silent` (rien) |
 | `AutoDetectFullscreenApps` / `AutoDetectAction` | Traite les jeux plein écran, présentations et appels comme une app blacklistée |
 | `MaxPostponeMinutes` | Au-delà, un rappel reporté s'affiche quand même en toast |
-| `DefaultEventReminderMinutes` | Utilisé si l'évènement n'a pas de rappel « notification » dans Google (sinon ceux de Google sont repris) |
-| `AlsoRemindAtEventStart` | Rappel supplémentaire à l'heure pile |
-| `DefaultTaskTime`, `TaskReminderMinutes` | Heure par défaut des tâches, et rappels avant l'heure résolue |
-| `EnableWebTaskTimes`, `WebTaskTimesRefreshMinutes` | Module web (heure réelle des tâches), désactivé par défaut |
-| `AllDayReminderTime`, `BirthdayReminderTime` | Heure du rappel des évènements « journée entière » et des anniversaires |
+| `DefaultTaskTime` | Heure des tâches sans heure connue |
+| `AllDayReminderTime`, `BirthdayReminderTime` | Heure de référence des rappels des évènements « journée entière » et des anniversaires |
 | `MissedReminderGraceMinutes` | Un rappel manqué (PC éteint ou en veille) reste affiché s'il a moins de N min |
+| `CheckForUpdates` | Recherche automatique des nouvelles versions (au démarrage puis toutes les 6 h) |
+| `EnableWebTaskTimes`, `WebTaskTimesRefreshMinutes` | Module web (heure réelle des tâches), désactivé par défaut |
 | `IgnoredCalendarIds` | Agendas à ignorer. Par défaut, ce sont les agendas cochés dans Google qui sont suivis |
 
 À savoir : aucune fenêtre ne peut s'afficher par-dessus un jeu en **plein écran exclusif**. C'est pour ça que l'action `Postpone` est conseillée pour les jeux.
@@ -117,6 +121,6 @@ dotnet test tests/AgendaReminder.Core.Tests
 dotnet publish src/AgendaReminder.App -c Release -r win-x64 --self-contained true -o publish
 ```
 
-Pousser un tag `vX.Y.Z` publie automatiquement une **Release** GitHub avec l'installateur.
+Publier une version : onglet **Actions** → **build** → **Run workflow**, puis saisir la version (ex. `1.1.0`). Pousser un tag `vX.Y.Z` fonctionne aussi. Les installations existantes la proposent ensuite automatiquement. Pour cela, les releases doivent être accessibles sans compte GitHub, donc le dépôt doit être public.
 
 Fichiers dans `%APPDATA%\AgendaReminder` : `settings.json`, `accounts.json` et `tokens/` (comptes), `state.json` (rappels déjà vus, snoozes), `cache.json`, `web_task_times.json` et `webview/` (module web), `app.log`.

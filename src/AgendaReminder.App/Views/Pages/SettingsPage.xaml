@@ -23,32 +23,84 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
             <StackPanel>
 
-                <!-- Rappels -->
+                <!-- Rappels : notification et plein écran, chacun à ses moments -->
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="Rappels" Style="{StaticResource SectionTitle}" />
+                        <TextBlock Style="{StaticResource Caption}" Margin="0,-6,0,14"
+                                   Text="Minutes avant le début (évènements), l'heure de la tâche, ou l'heure de rappel (anniversaires, journée entière). Plusieurs valeurs possibles : « 10, 30 ». Laisser vide pour désactiver." />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="Notification (min avant)" Style="{StaticResource Caption}" Margin="0,0,12,6" />
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="Plein écran (min avant)" Style="{StaticResource Caption}" Margin="0,0,12,6" />
+                            <TextBlock Grid.Row="0" Grid.Column="3" Text="Couleur" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+
+                            <TextBlock Grid.Row="1" Text="Évènements" Style="{StaticResource FieldLabel}" />
+                            <TextBox x:Name="EventNotif" Grid.Row="1" Grid.Column="1" Width="150" Margin="0,0,12,8" />
+                            <TextBox x:Name="EventFull" Grid.Row="1" Grid.Column="2" Width="150" Margin="0,0,12,8" />
+                            <Button x:Name="EventColor" Grid.Row="1" Grid.Column="3" Tag="Event" Click="OnPickColor"
+                                    Width="64" Height="32" Margin="0,0,0,8" ToolTip="Choisir la couleur" />
+
+                            <TextBlock Grid.Row="2" Text="Tâches" Style="{StaticResource FieldLabel}" />
+                            <TextBox x:Name="TaskNotif" Grid.Row="2" Grid.Column="1" Width="150" Margin="0,0,12,8" />
+                            <TextBox x:Name="TaskFull" Grid.Row="2" Grid.Column="2" Width="150" Margin="0,0,12,8" />
+                            <Button x:Name="TaskColor" Grid.Row="2" Grid.Column="3" Tag="Task" Click="OnPickColor"
+                                    Width="64" Height="32" Margin="0,0,0,8" ToolTip="Choisir la couleur" />
+
+                            <TextBlock Grid.Row="3" Text="Anniversaires" Style="{StaticResource FieldLabel}" />
+                            <TextBox x:Name="BirthdayNotif" Grid.Row="3" Grid.Column="1" Width="150" Margin="0,0,12,8" />
+                            <TextBox x:Name="BirthdayFull" Grid.Row="3" Grid.Column="2" Width="150" Margin="0,0,12,8" />
+                            <Button x:Name="BirthdayColor" Grid.Row="3" Grid.Column="3" Tag="Birthday" Click="OnPickColor"
+                                    Width="64" Height="32" Margin="0,0,0,8" ToolTip="Choisir la couleur" />
+                        </Grid>
+
+                        <!-- Sélecteur de couleur (affiché sous le tableau) -->
+                        <Border x:Name="ColorPanel" Visibility="Collapsed" Margin="0,4,0,12" Padding="12" CornerRadius="6"
+                                BorderThickness="1" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}">
+                            <StackPanel>
+                                <TextBlock x:Name="ColorPanelTitle" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                <WrapPanel x:Name="PaletteHost" Margin="0,0,0,8" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Personnalisée :" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBox x:Name="HexBox" Width="110" ToolTip="#RRGGBB" />
+                                    <Button Content="Appliquer" Margin="8,0,0,0" Click="OnApplyHex" />
+                                    <Button Content="Fermer" Margin="8,0,0,0" Click="OnCloseColor" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                         <DockPanel Style="{StaticResource Row}">
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="Évènements sans rappel dans Google : minutes avant (ex. 10, 30)" />
-                            <TextBox x:Name="EventMinutes" DockPanel.Dock="Right" Width="140" />
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Rappels déjà définis dans Google sur les évènements" />
+                            <ComboBox x:Name="GoogleStyle" DockPanel.Dock="Right" Width="220"
+                                      ItemsSource="{x:Static v:Choices.GoogleReminderStyles}" SelectedValuePath="Value" />
                         </DockPanel>
                         <DockPanel Style="{StaticResource Row}">
-                            <CheckBox x:Name="RemindAtStart" Content="Rappel supplémentaire à l'heure de début des évènements" />
+                            <CheckBox x:Name="UseGoogleColors" Content="Évènements : utiliser la couleur de Google Agenda (évènement ou agenda)" />
                         </DockPanel>
                         <DockPanel Style="{StaticResource Row}">
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="Heure du rappel des évènements « journée entière »" />
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Heure de rappel des évènements « journée entière »" />
                             <TextBox x:Name="AllDayTime" DockPanel.Dock="Right" Width="140" />
                         </DockPanel>
                         <DockPanel Style="{StaticResource Row}">
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="Heure du rappel des anniversaires" />
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Heure de rappel des anniversaires" />
                             <TextBox x:Name="BirthdayTime" DockPanel.Dock="Right" Width="140" />
                         </DockPanel>
                         <DockPanel Style="{StaticResource Row}">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Heure des tâches sans heure connue" />
                             <TextBox x:Name="TaskTime" DockPanel.Dock="Right" Width="140" />
-                        </DockPanel>
-                        <DockPanel Style="{StaticResource Row}">
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="Tâches : minutes avant l'heure (0 = à l'heure pile)" />
-                            <TextBox x:Name="TaskMinutes" DockPanel.Dock="Right" Width="140" />
                         </DockPanel>
                         <DockPanel Style="{StaticResource Row}" Margin="0">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Rappel manqué (PC éteint/en veille) encore affiché s'il a moins de (min)" />
@@ -57,25 +109,10 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Affichage -->
+                <!-- Notifications -->
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock Text="Affichage" Style="{StaticResource SectionTitle}" />
-                        <DockPanel Style="{StaticResource Row}">
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="Évènements" />
-                            <ComboBox x:Name="EventStyle" DockPanel.Dock="Right" Width="220"
-                                      ItemsSource="{x:Static v:Choices.DisplayStyles}" SelectedValuePath="Value" />
-                        </DockPanel>
-                        <DockPanel Style="{StaticResource Row}">
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="Tâches" />
-                            <ComboBox x:Name="TaskStyle" DockPanel.Dock="Right" Width="220"
-                                      ItemsSource="{x:Static v:Choices.DisplayStyles}" SelectedValuePath="Value" />
-                        </DockPanel>
-                        <DockPanel Style="{StaticResource Row}">
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="Anniversaires" />
-                            <ComboBox x:Name="BirthdayStyle" DockPanel.Dock="Right" Width="220"
-                                      ItemsSource="{x:Static v:Choices.DisplayStyles}" SelectedValuePath="Value" />
-                        </DockPanel>
+                        <TextBlock Text="Notifications et plein écran" Style="{StaticResource SectionTitle}" />
                         <DockPanel Style="{StaticResource Row}">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Durée d'affichage des notifications (secondes, 0 = jusqu'à fermeture)" />
                             <TextBox x:Name="ToastSeconds" DockPanel.Dock="Right" Width="140" />
@@ -163,6 +200,20 @@
                             <TextBox x:Name="WebMinutes" DockPanel.Dock="Right" Width="140" />
                         </DockPanel>
                         <TextBlock x:Name="WebStatus" Style="{StaticResource Caption}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Mises à jour -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Mises à jour" Style="{StaticResource SectionTitle}" />
+                        <DockPanel Style="{StaticResource Row}">
+                            <CheckBox x:Name="AutoUpdate" Content="Rechercher automatiquement les nouvelles versions" />
+                            <Button x:Name="InstallUpdateButton" DockPanel.Dock="Right" Content="Installer la mise à jour"
+                                    Style="{DynamicResource AccentButtonStyle}" Visibility="Collapsed" Click="OnInstallUpdate" />
+                            <Button DockPanel.Dock="Right" Content="Rechercher maintenant" Margin="0,0,8,0" Click="OnCheckUpdate" />
+                        </DockPanel>
+                        <TextBlock x:Name="UpdateStatus" Style="{StaticResource Caption}" />
                     </StackPanel>
                 </Border>
 

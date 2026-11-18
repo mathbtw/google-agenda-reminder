@@ -28,12 +28,7 @@ public sealed class ReminderView
         _ => "📅",
     };
 
-    public Brush Accent => Item.Kind switch
-    {
-        ReminderKind.Birthday => Frozen(0xF5, 0xA0, 0x4C),
-        ReminderKind.Task => Frozen(0x34, 0xC3, 0x8F),
-        _ => Frozen(0x4C, 0x8B, 0xF5),
-    };
+    public Brush Accent => Ui.AccentFor(Item);
 
     public string WhenText
     {

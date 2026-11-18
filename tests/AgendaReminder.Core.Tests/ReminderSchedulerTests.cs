@@ -16,7 +16,7 @@ public class ReminderSchedulerTests
         Kind = ReminderKind.Event,
         Title = id,
         Start = Now.AddMinutes(10),
-        Triggers = triggers,
+        Triggers = triggers.Select(t => new ReminderTrigger(t, DisplayStyle.Toast)).ToList(),
     };
 
     [Fact]
@@ -57,7 +57,7 @@ public class ReminderSchedulerTests
     {
         var state = new ReminderState();
         var item = Item("a");
-        ReminderScheduler.AddSnooze(state, item, Now.AddMinutes(5));
+        ReminderScheduler.AddSnooze(state, item, Now.AddMinutes(5), DisplayStyle.FullScreen);
 
         Assert.Empty(ReminderScheduler.GetDue(new[] { item }, state, Now, Grace));
 
@@ -65,6 +65,7 @@ public class ReminderSchedulerTests
         var due = ReminderScheduler.GetDue(new[] { item }, state, later, Grace);
         Assert.Single(due);
         Assert.True(due[0].IsSnooze);
+        Assert.Equal(DisplayStyle.FullScreen, due[0].Style);
 
         ReminderScheduler.MarkHandled(state, due[0]);
         Assert.Empty(state.Snoozes);
@@ -82,25 +83,79 @@ public class ReminderSchedulerTests
         Assert.Equal(new[] { "recent" }, state.Fired.Keys);
     }
 
-    [Fact]
-    public void TimedEvent_WithoutGoogleReminder_UsesDefaults()
+    private static AppSettings With(int[] notif, int[] full, DisplayStyle google = DisplayStyle.Toast)
     {
-        var s = new AppSettings { DefaultEventReminderMinutes = { 30 }, AlsoRemindAtEventStart = true };
-        var start = Now.AddHours(2);
-
-        var triggers = TriggerBuilder.ForTimedEvent(start, Array.Empty<int>(), s);
-
-        Assert.Equal(new[] { start.AddMinutes(-30), start.AddMinutes(-10), start }, triggers);
+        var s = new AppSettings { GoogleRemindersStyle = google };
+        s.Reminders[ReminderKind.Event] = new KindReminders { NotificationMinutes = notif.ToList(), FullScreenMinutes = full.ToList() };
+        return s;
     }
 
     [Fact]
-    public void TimedEvent_WithGoogleReminders_UsesThem()
+    public void TimedEvent_NotificationThenFullScreen()
     {
-        var s = new AppSettings();
+        var start = Now.AddHours(2);
+        var triggers = TriggerBuilder.ForTimedEvent(start, Array.Empty<int>(), With(new[] { 10 }, new[] { 2 }));
+
+        Assert.Equal(new[]
+        {
+            new ReminderTrigger(start.AddMinutes(-10), DisplayStyle.Toast),
+            new ReminderTrigger(start.AddMinutes(-2), DisplayStyle.FullScreen),
+        }, triggers);
+    }
+
+    [Fact]
+    public void SameMinute_FullScreenWins()
+    {
+        var start = Now.AddHours(2);
+        var triggers = TriggerBuilder.ForTimedEvent(start, new[] { 5 }, With(new[] { 5 }, new[] { 5 }));
+
+        Assert.Equal(new[] { new ReminderTrigger(start.AddMinutes(-5), DisplayStyle.FullScreen) }, triggers);
+    }
+
+    [Fact]
+    public void GoogleReminders_UseConfiguredStyle_OrAreIgnored()
+    {
         var start = Now.AddHours(2);
 
-        var triggers = TriggerBuilder.ForTimedEvent(start, new[] { 15, 60 }, s);
+        var asFull = TriggerBuilder.ForTimedEvent(start, new[] { 30 }, With(Array.Empty<int>(), Array.Empty<int>(), DisplayStyle.FullScreen));
+        Assert.Equal(new[] { new ReminderTrigger(start.AddMinutes(-30), DisplayStyle.FullScreen) }, asFull);
 
-        Assert.Equal(new[] { start.AddMinutes(-60), start.AddMinutes(-15) }, triggers);
+        var ignored = TriggerBuilder.ForTimedEvent(start, new[] { 30 }, With(new[] { 10 }, Array.Empty<int>(), DisplayStyle.None));
+        Assert.Equal(new[] { new ReminderTrigger(start.AddMinutes(-10), DisplayStyle.Toast) }, ignored);
+    }
+
+    [Fact]
+    public void Task_UsesTaskSettings()
+    {
+        var s = new AppSettings();
+        s.Reminders[ReminderKind.Task] = new KindReminders { NotificationMinutes = { 15 }, FullScreenMinutes = { 0 } };
+        var when = Now.AddHours(1);
+
+        var triggers = TriggerBuilder.ForTask(when, s);
+
+        Assert.Equal(new[]
+        {
+            new ReminderTrigger(when.AddMinutes(-15), DisplayStyle.Toast),
+            new ReminderTrigger(when, DisplayStyle.FullScreen),
+        }, triggers);
+    }
+
+    [Fact]
+    public void MissingKindInSettingsFile_FallsBackToDefaults()
+    {
+        var s = new AppSettings { Reminders = new() };
+        Assert.NotEmpty(TriggerBuilder.ForTask(Now, s));
+    }
+
+    [Fact]
+    public void DueReminder_CarriesTriggerStyle()
+    {
+        var item = new ReminderItem
+        {
+            Id = "a", Kind = ReminderKind.Event, Title = "a", Start = Now,
+            Triggers = new[] { new ReminderTrigger(Now.AddMinutes(-1), DisplayStyle.FullScreen) },
+        };
+        var due = ReminderScheduler.GetDue(new[] { item }, new ReminderState(), Now, Grace);
+        Assert.Equal(DisplayStyle.FullScreen, Assert.Single(due).Style);
     }
 }

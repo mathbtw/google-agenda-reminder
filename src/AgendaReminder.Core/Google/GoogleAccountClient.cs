@@ -213,6 +213,17 @@ public sealed class GoogleAccountClient : IDisposable
     private Task<List<ReminderItem>> FetchCalendarAsync(AppSettings settings, DateTimeOffset now, TimeZoneInfo zone, CancellationToken ct) => Guard(async () =>
     {
         var result = new List<ReminderItem>();
+
+        // Palette des couleurs d'évènement Google (colorId -> #RRGGBB) ; facultative.
+        var eventColors = new Dictionary<string, string>();
+        try
+        {
+            var colors = await _calendar.Colors.Get().ExecuteAsync(ct);
+            foreach (var (id, def) in colors.Event__ ?? new Dictionary<string, ColorDefinition>())
+                if (def.Background is { } bg) eventColors[id] = bg;
+        }
+        catch (Exception) { /* sans couleurs, on utilisera celle de l'agenda */ }
+
         foreach (var cal in await ListCalendarEntriesAsync(ct))
         {
             // On suit les agendas cochés dans l'interface Google, moins ceux ignorés dans les paramètres.
@@ -238,7 +249,7 @@ public sealed class GoogleAccountClient : IDisposable
 
                 foreach (var ev in page.Items ?? new List<Event>())
                 {
-                    var item = MapEvent(ev, cal, defaultPopup, settings, zone);
+                    var item = MapEvent(ev, cal, defaultPopup, settings, zone, eventColors);
                     if (item is not null)
                         result.Add(item);
                 }
@@ -248,7 +259,8 @@ public sealed class GoogleAccountClient : IDisposable
         return result;
     });
 
-    private ReminderItem? MapEvent(Event ev, CalendarListEntry cal, List<int> defaultPopup, AppSettings settings, TimeZoneInfo zone)
+    private ReminderItem? MapEvent(Event ev, CalendarListEntry cal, List<int> defaultPopup, AppSettings settings, TimeZoneInfo zone,
+        IReadOnlyDictionary<string, string> eventColors)
     {
         if (ev.Status == "cancelled" || ev.Start is null)
             return null;
@@ -282,6 +294,7 @@ public sealed class GoogleAccountClient : IDisposable
             ContainerId = cal.Id,
             SourceId = ev.Id,
             Link = ev.HtmlLink,
+            GoogleColor = ev.ColorId is { } cid && eventColors.TryGetValue(cid, out var c) ? c : cal.BackgroundColor,
             CanEdit = !isBirthday && cal.AccessRole is "owner" or "writer",
         };
 
