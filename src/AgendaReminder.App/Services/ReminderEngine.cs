@@ -459,6 +459,8 @@ internal sealed class ReminderEngine : IDisposable
     public void ShowFullScreen(IEnumerable<ReminderItem> items)
     {
         var views = items.Select(i => new ReminderView { Item = i }).ToList();
+        // Le plein écran prend le relais : on retire la notification encore affichée pour ces éléments.
+        _toasts.CloseFor(views.Select(v => v.Item.Id));
         if (_fullScreen is null)
         {
             if (Settings.PlaySound)

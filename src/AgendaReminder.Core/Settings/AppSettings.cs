@@ -37,15 +37,25 @@ public enum BlacklistAction
 /// </summary>
 public sealed class KindReminders
 {
+    /// <summary>Case « Notification » cochée.</summary>
+    public bool NotificationEnabled { get; set; } = true;
+
     public List<int> NotificationMinutes { get; set; } = new();
 
+    /// <summary>Case « Plein écran » cochée.</summary>
+    public bool FullScreenEnabled { get; set; } = true;
+
     public List<int> FullScreenMinutes { get; set; } = new();
+
+    public IEnumerable<int> ActiveNotificationMinutes => NotificationEnabled ? NotificationMinutes : Enumerable.Empty<int>();
+
+    public IEnumerable<int> ActiveFullScreenMinutes => FullScreenEnabled ? FullScreenMinutes : Enumerable.Empty<int>();
 
     public static Dictionary<ReminderKind, KindReminders> Defaults() => new()
     {
         [ReminderKind.Event] = new() { NotificationMinutes = { 10 }, FullScreenMinutes = { 2 } },
         [ReminderKind.Task] = new() { NotificationMinutes = { 10 }, FullScreenMinutes = { 0 } },
-        [ReminderKind.Birthday] = new() { NotificationMinutes = { 0 } },
+        [ReminderKind.Birthday] = new() { NotificationMinutes = { 0 }, FullScreenEnabled = false },
     };
 }
 

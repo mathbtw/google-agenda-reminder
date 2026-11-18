@@ -158,4 +158,21 @@ public class ReminderSchedulerTests
         var due = ReminderScheduler.GetDue(new[] { item }, new ReminderState(), Now, Grace);
         Assert.Equal(DisplayStyle.FullScreen, Assert.Single(due).Style);
     }
+
+    [Fact]
+    public void UncheckedForm_ProducesNoTrigger_ButKeepsItsMinutes()
+    {
+        var s = new AppSettings();
+        s.Reminders[ReminderKind.Event] = new KindReminders
+        {
+            NotificationMinutes = { 10 },
+            FullScreenEnabled = false, FullScreenMinutes = { 2 },
+        };
+        var start = Now.AddHours(1);
+
+        var triggers = TriggerBuilder.ForTimedEvent(start, Array.Empty<int>(), s);
+
+        Assert.Equal(new[] { new ReminderTrigger(start.AddMinutes(-10), DisplayStyle.Toast) }, triggers);
+        Assert.Equal(new[] { 2 }, s.Reminders[ReminderKind.Event].FullScreenMinutes);
+    }
 }

@@ -3,9 +3,9 @@
   "LookAheadDays": 14,
 
   "Reminders": {
-    "Event":    { "NotificationMinutes": [10], "FullScreenMinutes": [2] },
-    "Task":     { "NotificationMinutes": [10], "FullScreenMinutes": [0] },
-    "Birthday": { "NotificationMinutes": [0],  "FullScreenMinutes": [] }
+    "Event":    { "NotificationEnabled": true, "NotificationMinutes": [10], "FullScreenEnabled": true,  "FullScreenMinutes": [2] },
+    "Task":     { "NotificationEnabled": true, "NotificationMinutes": [10], "FullScreenEnabled": true,  "FullScreenMinutes": [0] },
+    "Birthday": { "NotificationEnabled": true, "NotificationMinutes": [0],  "FullScreenEnabled": false, "FullScreenMinutes": [] }
   },
   "GoogleRemindersStyle": "Toast",
 

@@ -28,11 +28,11 @@
                     <StackPanel>
                         <TextBlock Text="Rappels" Style="{StaticResource SectionTitle}" />
                         <TextBlock Style="{StaticResource Caption}" Margin="0,-6,0,14"
-                                   Text="Minutes avant le début (évènements), l'heure de la tâche, ou l'heure de rappel (anniversaires, journée entière). Plusieurs valeurs possibles : « 10, 30 ». Laisser vide pour désactiver." />
+                                   Text="Cochez la notification et/ou le plein écran, chacun avec son propre délai (ex. notification 10 min avant, puis plein écran 2 min avant). Minutes avant le début (évènements), l'heure de la tâche, ou l'heure de rappel (anniversaires). Plusieurs délais possibles : « 10, 30 »." />
 
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" MinWidth="130" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
@@ -41,30 +41,55 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Row="0" Grid.Column="1" Text="Notification (min avant)" Style="{StaticResource Caption}" Margin="0,0,12,6" />
-                            <TextBlock Grid.Row="0" Grid.Column="2" Text="Plein écran (min avant)" Style="{StaticResource Caption}" Margin="0,0,12,6" />
-                            <TextBlock Grid.Row="0" Grid.Column="3" Text="Couleur" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+                            <TextBlock Grid.Row="0" Text="Évènements" Style="{StaticResource FieldLabel}" FontWeight="SemiBold" />
+                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,24,10">
+                                <CheckBox x:Name="EventNotifOn" Content="Notification" Width="120" VerticalAlignment="Center"
+                                          Checked="OnFormToggled" Unchecked="OnFormToggled" />
+                                <TextBox x:Name="EventNotif" Width="80" />
+                                <TextBlock Text="min avant" VerticalAlignment="Center" Margin="8,0,0,0" Style="{StaticResource Muted}" />
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Margin="0,0,24,10">
+                                <CheckBox x:Name="EventFullOn" Content="Plein écran" Width="120" VerticalAlignment="Center"
+                                          Checked="OnFormToggled" Unchecked="OnFormToggled" />
+                                <TextBox x:Name="EventFull" Width="80" />
+                                <TextBlock Text="min avant" VerticalAlignment="Center" Margin="8,0,0,0" Style="{StaticResource Muted}" />
+                            </StackPanel>
+                            <Button x:Name="EventColor" Grid.Row="0" Grid.Column="3" Tag="Event" Click="OnPickColor"
+                                    Width="64" Height="32" Margin="0,0,0,10" ToolTip="Choisir la couleur" />
 
-                            <TextBlock Grid.Row="1" Text="Évènements" Style="{StaticResource FieldLabel}" />
-                            <TextBox x:Name="EventNotif" Grid.Row="1" Grid.Column="1" Width="150" Margin="0,0,12,8" />
-                            <TextBox x:Name="EventFull" Grid.Row="1" Grid.Column="2" Width="150" Margin="0,0,12,8" />
-                            <Button x:Name="EventColor" Grid.Row="1" Grid.Column="3" Tag="Event" Click="OnPickColor"
-                                    Width="64" Height="32" Margin="0,0,0,8" ToolTip="Choisir la couleur" />
+                            <TextBlock Grid.Row="1" Text="Tâches" Style="{StaticResource FieldLabel}" FontWeight="SemiBold" />
+                            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,24,10">
+                                <CheckBox x:Name="TaskNotifOn" Content="Notification" Width="120" VerticalAlignment="Center"
+                                          Checked="OnFormToggled" Unchecked="OnFormToggled" />
+                                <TextBox x:Name="TaskNotif" Width="80" />
+                                <TextBlock Text="min avant" VerticalAlignment="Center" Margin="8,0,0,0" Style="{StaticResource Muted}" />
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Margin="0,0,24,10">
+                                <CheckBox x:Name="TaskFullOn" Content="Plein écran" Width="120" VerticalAlignment="Center"
+                                          Checked="OnFormToggled" Unchecked="OnFormToggled" />
+                                <TextBox x:Name="TaskFull" Width="80" />
+                                <TextBlock Text="min avant" VerticalAlignment="Center" Margin="8,0,0,0" Style="{StaticResource Muted}" />
+                            </StackPanel>
+                            <Button x:Name="TaskColor" Grid.Row="1" Grid.Column="3" Tag="Task" Click="OnPickColor"
+                                    Width="64" Height="32" Margin="0,0,0,10" ToolTip="Choisir la couleur" />
 
-                            <TextBlock Grid.Row="2" Text="Tâches" Style="{StaticResource FieldLabel}" />
-                            <TextBox x:Name="TaskNotif" Grid.Row="2" Grid.Column="1" Width="150" Margin="0,0,12,8" />
-                            <TextBox x:Name="TaskFull" Grid.Row="2" Grid.Column="2" Width="150" Margin="0,0,12,8" />
-                            <Button x:Name="TaskColor" Grid.Row="2" Grid.Column="3" Tag="Task" Click="OnPickColor"
-                                    Width="64" Height="32" Margin="0,0,0,8" ToolTip="Choisir la couleur" />
-
-                            <TextBlock Grid.Row="3" Text="Anniversaires" Style="{StaticResource FieldLabel}" />
-                            <TextBox x:Name="BirthdayNotif" Grid.Row="3" Grid.Column="1" Width="150" Margin="0,0,12,8" />
-                            <TextBox x:Name="BirthdayFull" Grid.Row="3" Grid.Column="2" Width="150" Margin="0,0,12,8" />
-                            <Button x:Name="BirthdayColor" Grid.Row="3" Grid.Column="3" Tag="Birthday" Click="OnPickColor"
-                                    Width="64" Height="32" Margin="0,0,0,8" ToolTip="Choisir la couleur" />
+                            <TextBlock Grid.Row="2" Text="Anniversaires" Style="{StaticResource FieldLabel}" FontWeight="SemiBold" />
+                            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,24,10">
+                                <CheckBox x:Name="BirthdayNotifOn" Content="Notification" Width="120" VerticalAlignment="Center"
+                                          Checked="OnFormToggled" Unchecked="OnFormToggled" />
+                                <TextBox x:Name="BirthdayNotif" Width="80" />
+                                <TextBlock Text="min avant" VerticalAlignment="Center" Margin="8,0,0,0" Style="{StaticResource Muted}" />
+                            </StackPanel>
+                            <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal" Margin="0,0,24,10">
+                                <CheckBox x:Name="BirthdayFullOn" Content="Plein écran" Width="120" VerticalAlignment="Center"
+                                          Checked="OnFormToggled" Unchecked="OnFormToggled" />
+                                <TextBox x:Name="BirthdayFull" Width="80" />
+                                <TextBlock Text="min avant" VerticalAlignment="Center" Margin="8,0,0,0" Style="{StaticResource Muted}" />
+                            </StackPanel>
+                            <Button x:Name="BirthdayColor" Grid.Row="2" Grid.Column="3" Tag="Birthday" Click="OnPickColor"
+                                    Width="64" Height="32" Margin="0,0,0,10" ToolTip="Choisir la couleur" />
                         </Grid>
 
                         <!-- Sélecteur de couleur (affiché sous le tableau) -->

@@ -91,7 +91,7 @@ Tout se règle dans la page **Paramètres** de l'app. Le fichier `%APPDATA%\Agen
 
 | Clé | Rôle |
 |-----|------|
-| `Reminders` | Par type (`Event`, `Task`, `Birthday`) : `NotificationMinutes` et `FullScreenMinutes`, en minutes avant. Si les deux tombent au même moment, le plein écran l'emporte |
+| `Reminders` | Par type (`Event`, `Task`, `Birthday`) : `NotificationEnabled` + `NotificationMinutes`, et `FullScreenEnabled` + `FullScreenMinutes` (minutes avant). Dans l'app, ce sont les cases « Notification » et « Plein écran » |
 | `GoogleRemindersStyle` | Forme des rappels déjà définis dans Google sur les évènements : `Toast`, `FullScreen` ou `None` (ignorés) |
 | `Colors`, `UseGoogleCalendarColors` | Couleur par type (`#RRGGBB`), ou couleur Google pour les évènements |
 | `Blacklist` | `[{ "Process": "valorant.exe", "Action": "Postpone" }]`. Actions : `Postpone` (attend que l'app ne soit plus au premier plan), `ToastOnly` (petit toast au lieu du plein écran), `Silent` (rien) |

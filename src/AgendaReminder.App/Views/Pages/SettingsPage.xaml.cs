@@ -55,9 +55,9 @@ public partial class SettingsPage : UserControl, IPage
             JsonSerializer.Serialize(_engine.Settings, JsonFileStore.Options), JsonFileStore.Options) ?? new AppSettings();
         var s = _draft;
 
-        LoadKind(s, ReminderKind.Event, EventNotif, EventFull);
-        LoadKind(s, ReminderKind.Task, TaskNotif, TaskFull);
-        LoadKind(s, ReminderKind.Birthday, BirthdayNotif, BirthdayFull);
+        LoadKind(s, ReminderKind.Event, EventNotifOn, EventNotif, EventFullOn, EventFull);
+        LoadKind(s, ReminderKind.Task, TaskNotifOn, TaskNotif, TaskFullOn, TaskFull);
+        LoadKind(s, ReminderKind.Birthday, BirthdayNotifOn, BirthdayNotif, BirthdayFullOn, BirthdayFull);
         GoogleStyle.SelectedValue = s.GoogleRemindersStyle;
         UseGoogleColors.IsChecked = s.UseGoogleCalendarColors;
         foreach (var kind in new[] { ReminderKind.Event, ReminderKind.Task, ReminderKind.Birthday })
@@ -92,18 +92,55 @@ public partial class SettingsPage : UserControl, IPage
         SavedText.Text = "";
     }
 
-    private static void LoadKind(AppSettings s, ReminderKind kind, TextBox notif, TextBox full)
+    private static void LoadKind(AppSettings s, ReminderKind kind, CheckBox notifOn, TextBox notif, CheckBox fullOn, TextBox full)
     {
         var r = s.RemindersFor(kind);
-        notif.Text = Ui.FormatIntList(r.NotificationMinutes);
-        full.Text = Ui.FormatIntList(r.FullScreenMinutes);
+        var defaults = KindReminders.Defaults()[kind];
+        // Case cochée seulement s'il y a au moins un délai ; sinon on propose un délai par défaut.
+        notifOn.IsChecked = r.NotificationEnabled && r.NotificationMinutes.Count > 0;
+        notif.Text = Ui.FormatIntList(r.NotificationMinutes.Count > 0 ? r.NotificationMinutes : defaults.NotificationMinutes.DefaultIfEmpty(10));
+        fullOn.IsChecked = r.FullScreenEnabled && r.FullScreenMinutes.Count > 0;
+        full.Text = Ui.FormatIntList(r.FullScreenMinutes.Count > 0 ? r.FullScreenMinutes : defaults.FullScreenMinutes.DefaultIfEmpty(0));
+        notif.IsEnabled = notifOn.IsChecked == true;
+        full.IsEnabled = fullOn.IsChecked == true;
     }
 
-    private static KindReminders ReadKind(string name, TextBox notif, TextBox full, List<string> errors) => new()
+    private static KindReminders ReadKind(string name, CheckBox notifOn, TextBox notif, CheckBox fullOn, TextBox full, List<string> errors)
     {
-        NotificationMinutes = IntList(notif, name + " (notification)", errors),
-        FullScreenMinutes = IntList(full, name + " (plein écran)", errors),
-    };
+        var r = new KindReminders
+        {
+            NotificationEnabled = notifOn.IsChecked == true,
+            NotificationMinutes = IntList(notif, name + " (notification)", errors),
+            FullScreenEnabled = fullOn.IsChecked == true,
+            FullScreenMinutes = IntList(full, name + " (plein écran)", errors),
+        };
+        if (r.NotificationEnabled && r.NotificationMinutes.Count == 0)
+            errors.Add($"{name} : indiquez le délai de la notification (ou décochez-la)");
+        if (r.FullScreenEnabled && r.FullScreenMinutes.Count == 0)
+            errors.Add($"{name} : indiquez le délai du plein écran (ou décochez-le)");
+        if (r.NotificationEnabled && r.FullScreenEnabled)
+        {
+            var overlap = r.NotificationMinutes.Intersect(r.FullScreenMinutes).ToList();
+            if (overlap.Count > 0)
+                errors.Add($"{name} : la notification et le plein écran tombent au même moment ({string.Join(", ", overlap)} min). Choisissez des délais différents.");
+        }
+        return r;
+    }
+
+    /// <summary>Case décochée = champ des minutes grisé.</summary>
+    private void OnFormToggled(object sender, RoutedEventArgs e)
+    {
+        foreach (var (box, text) in new[]
+                 {
+                     (EventNotifOn, EventNotif), (EventFullOn, EventFull),
+                     (TaskNotifOn, TaskNotif), (TaskFullOn, TaskFull),
+                     (BirthdayNotifOn, BirthdayNotif), (BirthdayFullOn, BirthdayFull),
+                 })
+        {
+            if (box is not null && text is not null)
+                text.IsEnabled = box.IsChecked == true;
+        }
+    }
 
     private void OnSave(object sender, RoutedEventArgs e)
     {
@@ -112,9 +149,9 @@ public partial class SettingsPage : UserControl, IPage
 
         s.Reminders = new Dictionary<ReminderKind, KindReminders>
         {
-            [ReminderKind.Event] = ReadKind("Évènements", EventNotif, EventFull, errors),
-            [ReminderKind.Task] = ReadKind("Tâches", TaskNotif, TaskFull, errors),
-            [ReminderKind.Birthday] = ReadKind("Anniversaires", BirthdayNotif, BirthdayFull, errors),
+            [ReminderKind.Event] = ReadKind("Évènements", EventNotifOn, EventNotif, EventFullOn, EventFull, errors),
+            [ReminderKind.Task] = ReadKind("Tâches", TaskNotifOn, TaskNotif, TaskFullOn, TaskFull, errors),
+            [ReminderKind.Birthday] = ReadKind("Anniversaires", BirthdayNotifOn, BirthdayNotif, BirthdayFullOn, BirthdayFull, errors),
         };
         s.GoogleRemindersStyle = (DisplayStyle)(GoogleStyle.SelectedValue ?? DisplayStyle.Toast);
         s.UseGoogleCalendarColors = UseGoogleColors.IsChecked == true;

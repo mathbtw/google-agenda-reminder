@@ -32,6 +32,14 @@ internal sealed class ToastManager
         Layout();
     }
 
+    /// <summary>Ferme les notifications encore ouvertes pour ces éléments (ex. quand leur plein écran s'affiche).</summary>
+    public void CloseFor(IEnumerable<string> itemIds)
+    {
+        var ids = itemIds.ToHashSet();
+        foreach (var toast in _open.Where(t => t.DataContext is ReminderView v && ids.Contains(v.Item.Id)).ToList())
+            toast.FadeOutAndClose();
+    }
+
     private void Layout()
     {
         var area = SystemParameters.WorkArea;

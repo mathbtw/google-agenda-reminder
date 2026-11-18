@@ -48,8 +48,8 @@ public static class TriggerBuilder
         Merge(FromKind(when, s.RemindersFor(ReminderKind.Task)));
 
     private static IEnumerable<(DateTimeOffset At, DisplayStyle Style)> FromKind(DateTimeOffset anchor, KindReminders k) =>
-        k.NotificationMinutes.Where(m => m >= 0).Select(m => (anchor.AddMinutes(-m), DisplayStyle.Toast))
-            .Concat(k.FullScreenMinutes.Where(m => m >= 0).Select(m => (anchor.AddMinutes(-m), DisplayStyle.FullScreen)));
+        k.ActiveNotificationMinutes.Where(m => m >= 0).Select(m => (anchor.AddMinutes(-m), DisplayStyle.Toast))
+            .Concat(k.ActiveFullScreenMinutes.Where(m => m >= 0).Select(m => (anchor.AddMinutes(-m), DisplayStyle.FullScreen)));
 
     /// <summary>Un seul rappel par instant ; le plein écran l'emporte sur la notification.</summary>
     private static IReadOnlyList<ReminderTrigger> Merge(IEnumerable<(DateTimeOffset At, DisplayStyle Style)> entries) =>
